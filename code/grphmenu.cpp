@@ -19,8 +19,9 @@
 #include "ini.h"
 #include "keyboard.h"
 #include "msanim.h"
-#include "ownrdraw.h"
+#include "surface.h"
 #include "theme.h"
+#include "wwmouse.h"
 
 GraphicMenu * _Graphic_Menu(INIClass const & ini, const char * name);
 GraphicMenuItem * GM_Create_Item_From_INI(const char * name, INIClass const & ini, MSEngine & engine, Point2D & image_size);
@@ -164,7 +165,7 @@ int GraphicMenu::Presentation(void)
 {
 	Theme.Play_Song(Theme.From_Name(ThemeName.Peek()));
 
-	OwnerDraw::Capture_Mouse();
+	Menu_Capture_Mouse();
 
 	HiddenSurface->Fill(0);
 	AlternateSurface->Fill(0);
@@ -224,7 +225,7 @@ int GraphicMenu::Presentation(void)
 		item->Action(&Engine);
 	}
 
-	OwnerDraw::Release_Mouse();
+	Menu_Release_Mouse();
 
 	Theme.Fade_Out();
 

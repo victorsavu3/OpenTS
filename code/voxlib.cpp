@@ -15,6 +15,7 @@
 #include "wwfile.h"
 
 #include <algorithm>
+#include <climits>
 
 short VoxelPixelDeltaTable[VOXEL_BITMAP_WIDTH][2];
 unsigned char VoxelNormalTranslateTable[VOXEL_PALETTE_SIZE];

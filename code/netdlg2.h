@@ -14,7 +14,6 @@
 #pragma once
 
 #include "ui/screens/netlobby/uinetlobby.h"
-#include "win.h"
 
 struct GlobalPacketType;
 class IPXAddressClass;

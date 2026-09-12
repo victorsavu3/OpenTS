@@ -142,7 +142,6 @@
 #include "bench.hh"
 
 #include <algorithm>
-#include <intrin.h>
 
 
 int const InfantryClass::HumanShape[32] = {7,7,6,6,6,6,5,5,5,5,4,4,4,4,3,3,3,3,2,2,2,2,1,1,1,1,0,0,0,0,7,7};
@@ -3266,8 +3265,8 @@ void InfantryClass::Write_INI(CCINIClass & ini)
 			char	uname[10];
 			char	buf[128];
 
-			sprintf(uname, "%d", index);
-			sprintf(buf, "%s,%s,%d,%d,%d,%d,%s,%d,%s,%d,%d,%d,%d,%d",
+			snprintf(uname, sizeof(uname), "%d", index);
+			snprintf(buf, sizeof(buf), "%s,%s,%d,%d,%d,%d,%s,%d,%s,%d,%d,%d,%d,%d",
 					(char const *)infantry->House->Class->IniName,
 					(char const *)infantry->Class->IniName,
 					int(infantry->HealthRatio*256),

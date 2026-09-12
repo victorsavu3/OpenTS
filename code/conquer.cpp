@@ -66,6 +66,9 @@
 
 #include "conquer.h"
 
+#include "hostwindow.h"
+#include "ui/uishell.h"
+
 #include "_keyboar.h"
 #include "_map.h"
 #include "_palette.h"
@@ -104,6 +107,8 @@
 #include "netdlg2.h"
 #include "netglobal.h"
 #include "netshare.h"
+#include "platform/disk.h"
+#include "platform/wait.h"
 #include "progress.h"
 #include "queue.h"
 #include "rules.h"
@@ -128,11 +133,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-#include <direct.h>
-#include <dos.h>
-#include <fcntl.h>
-#include <io.h>
-#include <share.h>
 #include <span>
 
 
@@ -353,18 +353,7 @@ void Main_Game(int argc, char * argv[])
 	int ret = Init_Game(argc, argv);
 	if (ret) {
 		if (ret < 0) {
-			MSGBOXPARAMS params;
-			params.cbSize = sizeof(MSGBOXPARAMS);
-			params.hwndOwner = MainWindow;
-			params.hInstance = ProgramInstance;
-			params.lpszText = Fetch_String(TXT_INITGAME_FAILED);
-			params.lpszCaption = Fetch_String(TXT_SHORT_TITLE);
-			params.dwStyle = (MB_OK | MB_ICONSTOP | MB_SETFOREGROUND | MB_TOPMOST);
-			params.lpszIcon = NULL;
-			params.dwContextHelpId = NULL;
-			params.lpfnMsgBoxCallback = NULL;
-			params.dwLanguageId = MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT);
-			MessageBoxIndirect(&params);
+			Host_Message_Box(Fetch_String(TXT_SHORT_TITLE), Fetch_String(TXT_INITGAME_FAILED), HOST_BOX_OK | HOST_BOX_ERROR);
 		}
 		return;
 	}
@@ -544,6 +533,10 @@ void Call_Back(void)
 	if (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET) {
 		IPX_Call_Back();
 	}
+
+	// Every screen's wait reaches this routine, so it is where a document's layout and
+	// animation advance in a phase that has no loop of its own to tick them.
+	UI_Tick();
 }
 
 
@@ -958,7 +951,7 @@ bool Map_Edit_Loop(void)
 	Call_Back();								// maintains Theme.AI() for music
 //	Color_Cycle();
 
-	Sleep(1);
+	Platform_Sleep(1);
 
 	return(!GameActive);
 }
@@ -987,7 +980,7 @@ static void Resize_Tactical_View(bool flag)
 		Rect view(0, 0, Options.ScreenWidth, Options.ScreenHeight);
 		Map.Set_View_Dimensions(view);
 
-		Sleep(2);
+		Platform_Sleep(2);
 
 	} else {
 
@@ -1000,7 +993,7 @@ static void Resize_Tactical_View(bool flag)
 		Rect view(0, _tab_height, Options.ScreenWidth-_sidebar_width, Options.ScreenHeight-_tab_height);
 		Map.Set_View_Dimensions(view);
 
-		Sleep(2);
+		Platform_Sleep(2);
 	}
 }
 
@@ -1201,7 +1194,7 @@ TechnoTypeClass const * Fetch_Techno_Type(RTTIType type, int id)
  *=========================================================================*/
 unsigned int Disk_Space_Available(void)
 {
-	ULARGE_INTEGER freebytecount;		// Free bytes on disk available to caller (caller may not have access to entire disk).
+	std::uint64_t freebytecount = 0;		// Free bytes on disk available to caller (caller may not have access to entire disk).
 
 	DebugString("Checking available disk space\n");
 
@@ -1210,16 +1203,14 @@ unsigned int Disk_Space_Available(void)
 	 * directory once a player has one of their own.
 	 */
 	std::string const user_directory = User_File_Write_Name("");
-	LPCTSTR const disk = user_directory.empty() ? NULL : user_directory.c_str();
 
-	if (!GetDiskFreeSpaceEx(disk, &freebytecount, NULL, NULL)) {
-		DWORD const error = GetLastError();
-		DebugString("GetDiskFreeSpaceEx failed with error code %d - %s\n", error, Last_Error_Text(error));
+	if (!Platform_Free_Space(user_directory.c_str(), freebytecount)) {
+		DebugString("The free disk space could not be determined\n");
 		return(0);
 	}
 
 	// The kilobyte count saturates rather than wrapping.
-	unsigned int const diskspace = (unsigned int)std::min<ULONGLONG>(freebytecount.QuadPart / 1024, UINT_MAX);
+	unsigned int const diskspace = (unsigned int)std::min<std::uint64_t>(freebytecount / 1024, UINT_MAX);
 	DebugString("Free disk space is %u Mb\n", diskspace / 1024);
 	return(diskspace);
 }

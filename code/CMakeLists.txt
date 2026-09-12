@@ -39,6 +39,23 @@ foreach(f ${OPENTS_RAW})
         endif()
     endforeach()
 
+    # Resource and assembly files are Visual Studio toolchain inputs with no equivalent on
+    # the other targets.
+    if(OPENTS_POSIX AND f MATCHES "\\.(rc|asm)$")
+        set(EXCLUDED TRUE)
+    endif()
+
+    # The Windows UI input adapter is fed by the window procedure; another target's host
+    # feeds the shell itself.
+    if(OPENTS_POSIX AND f MATCHES "/ui/uiwin32\\.cpp$")
+        set(EXCLUDED TRUE)
+    endif()
+
+    # The platform layer is built once, as a library the engine and the harnesses link.
+    if(f MATCHES "/platform/[^/]*\\.cpp$")
+        set(EXCLUDED TRUE)
+    endif()
+
     if(NOT EXCLUDED)
         list(APPEND OPENTS_SRC "${f}")
     endif()
@@ -51,7 +68,18 @@ endforeach()
 #
 message(STATUS "${PROJECT_NAME}: Creating '${PROJECT_NAME}' executable...")
 
-add_executable(OpenTS WIN32 ${OPENTS_SRC})
+# The WIN32 marker selects the Windows GUI entry point and means nothing elsewhere. A POSIX
+# target links only with a host that answers code/hostwindow.h, which a host branch
+# supplies and names by setting OPENTS_HOST; without one the executable is left out of the
+# default build and the platform library and the harnesses still build.
+if(OPENTS_POSIX AND NOT OPENTS_HOST)
+    add_executable(OpenTS EXCLUDE_FROM_ALL ${OPENTS_SRC})
+elseif(OPENTS_POSIX)
+    add_executable(OpenTS ${OPENTS_SRC})
+else()
+    add_executable(OpenTS WIN32 ${OPENTS_SRC})
+endif()
+
 target_compile_features(OpenTS PRIVATE cxx_std_20)
 
 #
@@ -86,6 +114,55 @@ set_target_properties(OpenTS PROPERTIES
 # ---------------------------------------------------------
 #
 message(STATUS "${PROJECT_NAME}: Applying compiler flags...")
+
+if(OPENTS_POSIX)
+
+set(OPENTS_COMPILE_OPTIONS
+
+    # clang's default floating-point model keeps single precision single and reassociates
+    # nothing, which is what /arch:SSE2 and /fp:precise buy under MSVC. So the model needs
+    # nothing asked for here, but no fast-math option may ever be added: the simulation runs
+    # in lockstep across a network game and any relaxation desynchronizes it.
+    -fno-fast-math
+
+    # MSVC does not optimize on the strict aliasing rule and the inherited code puns types
+    # freely, so clang is held to the assumption the code was written under.
+    -fno-strict-aliasing
+
+    # AbstractClass offers twenty-four As_*Class helpers, each a dynamic_cast of `this`, and
+    # the engine calls them on pointers that may be null. clang infers that a member's `this`
+    # is nonnull and dereferenceable and so deletes the null test dynamic_cast is required to
+    # make -- inline or out of line, since the inference is about `this` rather than about
+    # inlining. The cast then reads a vtable at address zero. MSVC keeps the test, so this
+    # belongs to the clang target alone.
+    -fno-delete-null-pointer-checks
+
+    # The engine's wchar_t is 16 bits and the library's is 32, so no libc wide-string
+    # routine may be called. That is not enough on its own: at -O1 the loop-idiom pass
+    # recognizes a hand-written wide length scan and rewrites it back into a call to
+    # wcslen, which then counts the wrong character width. Two such helpers, written
+    # precisely to avoid the library, were compiled into calls to it.
+    -fno-builtin-wcslen
+    -fno-builtin-wcsnlen
+
+    # MSVC's wchar_t is 16 bits and clang's is 32. The engine's structures are
+    # layout-sensitive, so the narrow form is kept.
+    -fshort-wchar
+
+    # C++ exception handling, matching /EHsc.
+    $<$<BOOL:${OPENTS_MACOS}>:-fexceptions>
+
+    # The inherited declarations carry MSVC's __declspec, which clang parses only when asked.
+    -fdeclspec
+
+    -g
+    -fno-omit-frame-pointer
+
+    $<$<CONFIG:Debug>:-O0>
+    $<$<CONFIG:Release>:-O2>
+)
+
+else()
 
 set(OPENTS_COMPILE_OPTIONS
 
@@ -124,6 +201,8 @@ set(OPENTS_COMPILE_OPTIONS
     >
 )
 
+endif()
+
 target_compile_options(OpenTS PRIVATE ${OPENTS_COMPILE_OPTIONS})
 
 #
@@ -144,6 +223,20 @@ target_include_directories(OpenTS PRIVATE
 # The generated build stamp has to exist before anything compiles.
 add_dependencies(OpenTS OpenTSBuildStamp)
 
+# The platform layer: files, directory searches, free space and file times, with a Windows
+# and a POSIX implementation that each guard themselves. It is compiled with the engine's
+# own options.
+file(GLOB OPENTS_PLATFORM_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/platform/*.cpp")
+add_library(OpenTSPlatform STATIC ${OPENTS_PLATFORM_SOURCES})
+target_compile_features(OpenTSPlatform PUBLIC cxx_std_20)
+target_include_directories(OpenTSPlatform PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_options(OpenTSPlatform PRIVATE ${OPENTS_COMPILE_OPTIONS})
+target_compile_definitions(OpenTSPlatform PRIVATE NOMINMAX)
+target_link_libraries(OpenTS PRIVATE OpenTSPlatform)
+
+# The tactical caption draws with FreeType directly, as well as through RmlUi.
+target_link_libraries(OpenTS PRIVATE freetype)
+
 # Only the renderer's own translation unit sees bgfx, so its headers and the shaders it
 # embeds are put on that file rather than on the whole target.
 set(BGFX_ROOT "${CMAKE_SOURCE_DIR}/thirdparty/bgfx.cmake/bgfx")
@@ -152,8 +245,13 @@ set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/bgfxbackend.cpp" PROPER
         "${BGFX_ROOT}/include;${CMAKE_SOURCE_DIR}/thirdparty/bgfx.cmake/bx/include;${BGFX_ROOT}/examples/common/imgui"
     COMPILE_DEFINITIONS
         "BX_CONFIG_DEBUG=$<IF:$<CONFIG:Debug>,1,$<BOOL:${BX_CONFIG_DEBUG}>>"
-    COMPILE_OPTIONS "/Zc:preprocessor"
 )
+
+if(MSVC)
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/bgfxbackend.cpp" APPEND PROPERTY
+        COMPILE_OPTIONS "/Zc:preprocessor"
+    )
+endif()
 
 # bx rewrites __stdcall while its headers are being parsed by clang-cl.  Force the
 # compatibility header into the renderer translation unit as well as bx/bgfx so the
@@ -164,10 +262,58 @@ if(OPENTS_EXPERIMENTAL_CLANG_CL AND CMAKE_SIZEOF_VOID_P EQUAL 4)
     )
 endif()
 
+# The UI shell is the only part of the engine that sees RmlUi, so the library's headers go
+# on those files rather than on the whole target.
+file(GLOB OPENTS_UI_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")
+set_source_files_properties(${OPENTS_UI_SOURCES} PROPERTIES
+    INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/thirdparty/RmlUi/Include;${OPENTS_GENERATED_DIR}"
+)
+
+# The shell reads the generated string-name table, so the collector runs before it compiles.
+add_dependencies(OpenTS OpenTSStringNames)
+
+# The shell's renderer is the second translation unit that sees bgfx, so it takes the same
+# headers, shaders, and build settings that bgfxbackend.cpp does.
+set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/ui/uirender.cpp" PROPERTIES
+    INCLUDE_DIRECTORIES
+        "${CMAKE_SOURCE_DIR}/thirdparty/RmlUi/Include;${BGFX_ROOT}/include;${CMAKE_SOURCE_DIR}/thirdparty/bgfx.cmake/bx/include;${CMAKE_SOURCE_DIR}/thirdparty/bgfx.cmake/bimg/include;${BGFX_ROOT}/examples/common/imgui"
+    COMPILE_DEFINITIONS
+        "BX_CONFIG_DEBUG=$<IF:$<CONFIG:Debug>,1,$<BOOL:${BX_CONFIG_DEBUG}>>"
+)
+
+if(MSVC)
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/ui/uirender.cpp" APPEND PROPERTY
+        COMPILE_OPTIONS "/Zc:preprocessor"
+    )
+endif()
+
+if(OPENTS_EXPERIMENTAL_CLANG_CL AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/ui/uirender.cpp" APPEND PROPERTY
+        COMPILE_OPTIONS "/FI${CMAKE_SOURCE_DIR}/thirdparty/bx-clang-compat.h"
+    )
+endif()
+
+#
+# ---------------------------------------------------------
+# Shipped UI files
+# ---------------------------------------------------------
+#
+# The documents, styles, and fonts the UI shell reads. They are looked up by basename
+# through CCFileClass, so the directory is a packaging convenience: startup registers it as
+# a search folder, and a mod overrides one of these by placing a file earlier in that order
+# or by shipping it in a mix.
+set(OPENTS_UI_DATA_DIR "${CMAKE_SOURCE_DIR}/ui")
+
+add_custom_command(TARGET OpenTS POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${OPENTS_UI_DATA_DIR}" "$<TARGET_FILE_DIR:OpenTS>/ui"
+    COMMENT "Copying the UI files beside the executable"
+)
+
 message(STATUS "${PROJECT_NAME}: Adding compilier definitions...")
 target_compile_definitions(OpenTS PRIVATE
-    WIN32
-    _WINDOWS
+    $<$<BOOL:${WIN32}>:WIN32>
+    $<$<BOOL:${WIN32}>:_WINDOWS>
     NOMINMAX
 )
 
@@ -191,23 +337,45 @@ message(STATUS "${PROJECT_NAME}: Applying linker options...")
 target_link_libraries(OpenTS PRIVATE
     VQALib
 
-    bgfx
-    bx
-    bimg
+    $<TARGET_FILE:bgfx>
+    $<TARGET_FILE:bx>
+    $<TARGET_FILE:bimg_decode>
+    $<TARGET_FILE:bimg>
     miniaudio
     lzo
-    comctl32
-    dbghelp
-    iphlpapi
-    psapi
-    version
-    winmm
-    ws2_32
-    kernel32 user32 gdi32 winspool comdlg32 advapi32 shell32
-    odbc32 odbccp32
+    rmlui
 )
 
-if(MSVC)
+# bimg's decoder is built for the texture tools the engine does not ship, so it is excluded
+# from the default build. The UI shell decodes document images with it, which brings it back.
+set_target_properties(bimg_decode PROPERTIES EXCLUDE_FROM_ALL FALSE)
+add_dependencies(OpenTS bimg_decode)
+
+# The renderer is linked as a file rather than a target, so the frameworks bgfx reaches on
+# macOS are named here.
+if(OPENTS_MACOS)
+    target_link_libraries(OpenTS PRIVATE
+        "-framework Cocoa" "-framework Metal" "-framework QuartzCore" "-framework IOKit"
+        "-framework CoreFoundation" "-framework CoreVideo" "-framework CoreMedia"
+        "-framework VideoToolbox" "-framework Foundation"
+    )
+endif()
+
+if (WIN32)
+    target_link_libraries(OpenTS PRIVATE
+        comctl32
+        dbghelp
+        iphlpapi
+        psapi
+        winmm
+        wsock32
+        kernel32 user32 gdi32 winspool comdlg32 advapi32 shell32
+        odbc32 odbccp32
+    )
+endif()
+
+
+if (MSVC)
     target_link_options(OpenTS PRIVATE
         /SUBSYSTEM:WINDOWS
         /DEBUG
@@ -280,7 +448,9 @@ set_property(GLOBAL PROPERTY VS_STARTUP_PROJECT OpenTS)
 # ---------------------------------------------------------
 # Add the .natvis file for Visual Studio debugging
 # ---------------------------------------------------------
-set(NATVIS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/sun.natvis")
-source_group("Natvis Files" FILES ${NATVIS_FILE})
-target_sources(OpenTS PRIVATE ${NATVIS_FILE})
-target_link_options(OpenTS PRIVATE "/NATVIS:${NATVIS_FILE}")
+if(MSVC)
+    set(NATVIS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/sun.natvis")
+    source_group("Natvis Files" FILES ${NATVIS_FILE})
+    target_sources(OpenTS PRIVATE ${NATVIS_FILE})
+    target_link_options(OpenTS PRIVATE "/NATVIS:${NATVIS_FILE}")
+endif()

@@ -15,10 +15,13 @@
 #include "conquer.h"
 #include "data.h"
 #include "dbgprint.h"
+#include "dialogresult.h"
 #include "globals.h"
 #include "goptions.h"
+#include "hostwindow.h"
 #include "ipxmgr.h"
 #include "language/language.h"
+#include "lobbymsg.h"
 #include "lzopipe.h"
 #include "lzostraw.h"
 #include "mapgen.h"
@@ -26,12 +29,13 @@
 #include "netdlg.h"
 #include "netdlg2.h"
 #include "newmenu.h"
-#include "ownrdraw.h"
 #include "rules.h"
 #include "scenario.h"
 #include "sendfile.h"
 #include "session.h"
 #include "stimer.h"
+#include "ui/uilobby.h"
+#include "ui/uiwsstack.h"
 #include "wdtnet.h"
 #include "windlg.h"
 #include "utf8.h"
@@ -42,17 +46,19 @@
 
 #include <algorithm>
 #include <ctime>
+#include <string>
+#include <vector>
 
 
-const COLORREF ColorSystem     = RGB(255, 255, 255)|(255<<24);  /// 0xFFFFFFFF
-const COLORREF ColorUser       = RGB(240, 240, 0);              /// 0x0000F0F0
-const COLORREF ColorPriv       = RGB(128, 128, 255);            /// 0x00FF8080
-const COLORREF ColorPrivAction = RGB(255, 0, 255);              /// 0x00FF00FF
-const COLORREF ColorAction     = RGB(255, 80, 48);              /// 0x003050FF
-const COLORREF ColorOp         = RGB(0, 255, 255);              /// 0x00FFFF00
-const COLORREF ColorPaged      = RGB(255, 255, 255);            /// 0x00FFFFFF
-const COLORREF ColorMe         = RGB(255, 255, 64);             /// 0x0040FFFF
-const COLORREF ColorNoJoin     = RGB(128, 128, 128);            /// 0x00808080
+const std::uint32_t ColorSystem     = Lobby_Color(255, 255, 255)|(255<<24);  /// 0xFFFFFFFF
+const std::uint32_t ColorUser       = Lobby_Color(240, 240, 0);              /// 0x0000F0F0
+const std::uint32_t ColorPriv       = Lobby_Color(128, 128, 255);            /// 0x00FF8080
+const std::uint32_t ColorPrivAction = Lobby_Color(255, 0, 255);              /// 0x00FF00FF
+const std::uint32_t ColorAction     = Lobby_Color(255, 80, 48);              /// 0x003050FF
+const std::uint32_t ColorOp         = Lobby_Color(0, 255, 255);              /// 0x00FFFF00
+const std::uint32_t ColorPaged      = Lobby_Color(255, 255, 255);            /// 0x00FFFFFF
+const std::uint32_t ColorMe         = Lobby_Color(255, 255, 64);             /// 0x0040FFFF
+const std::uint32_t ColorNoJoin     = Lobby_Color(128, 128, 128);            /// 0x00808080
 
 /*
  * If the host is forcing a color reassignment, then this flag will be true. It is set when
@@ -61,15 +67,15 @@ const COLORREF ColorNoJoin     = RGB(128, 128, 128);            /// 0x00808080
  */
 int IsColorChangePending;
 
-COLORREF PlayerColorTable[MAX_PLAYERS] = {
-	RGB(255, 223, 94),	/// 0x005EDFFF
-	RGB(255, 26, 20),	/// 0x00141AFF
-	RGB(39, 60, 179),	/// 0x00B33C27
-	RGB(11, 148, 11),	/// 0x000B940B
-	RGB(218, 137, 26),	/// 0x001A89DA
-	RGB(20, 177, 255),	/// 0x00FFB114
-	RGB(185, 20, 255),	/// 0x00FF14B9
-	RGB(255, 70, 173)	/// 0x00AD46FF
+std::uint32_t PlayerColorTable[MAX_PLAYERS] = {
+	Lobby_Color(255, 223, 94),	/// 0x005EDFFF
+	Lobby_Color(255, 26, 20),	/// 0x00141AFF
+	Lobby_Color(39, 60, 179),	/// 0x00B33C27
+	Lobby_Color(11, 148, 11),	/// 0x000B940B
+	Lobby_Color(218, 137, 26),	/// 0x001A89DA
+	Lobby_Color(20, 177, 255),	/// 0x00FFB114
+	Lobby_Color(185, 20, 255),	/// 0x00FF14B9
+	Lobby_Color(255, 70, 173)	/// 0x00AD46FF
 };
 
 
@@ -100,6 +106,158 @@ unsigned int Wstring_Hash(Wstring & string)
 }
 
 
+/*
+ * The lobby screens' controls are reached through the routines below; see
+ * code/ui/uilobby.h. A screen answers the messages the lobby sends as the owner-draw control
+ * did, and a control the screen does not have, or a handle that names no lobby screen,
+ * answers as a missing child window did: with nothing done and zero returned.
+ */
+LobbyResult Lobby_Send(WSScreenHandle window, int id, unsigned int message, LobbyWParam wparam, LobbyLParam lparam)
+{
+	if (!UI_Lobby_Has_Control(window, id)) {
+		return(0);
+	}
+
+	switch (message) {
+		case LOBBY_MSG_SET_TEXT:
+			UI_Lobby_Set_Text(window, id, (char const *)lparam);
+			return(true);
+
+		case LOBBY_MSG_GET_TEXT: {
+			std::string const text = UI_Lobby_Get_Text(window, id);
+			int const size = (int)wparam;
+			if (size <= 0 || lparam == 0) {
+				return(0);
+			}
+			int const length = (int)UTF8::Boundary_Before(text.c_str(), (std::size_t)(size - 1));
+			memcpy((char *)lparam, text.data(), length);
+			((char *)lparam)[length] = '\0';
+			return(length);
+		}
+
+		case LOBBY_MSG_SET_TEXT_LIMIT:
+			UI_Lobby_Set_Limit(window, id, (int)wparam);
+			return(0);
+
+		case LOBBY_MSG_GET_CHECK:
+			return(UI_Lobby_Get_Check(window, id) ? LOBBY_CHECKED : LOBBY_UNCHECKED);
+
+		case LOBBY_MSG_SET_CHECK:
+			UI_Lobby_Set_Check(window, id, wparam == LOBBY_CHECKED);
+			return(0);
+
+		case LOBBY_MSG_TRACK_SET_RANGE:
+			UI_Lobby_Set_Range(window, id, Lobby_Low_Word(lparam), Lobby_High_Word(lparam));
+			return(0);
+
+		case LOBBY_MSG_TRACK_SET_POS:
+			UI_Lobby_Set_Position(window, id, (int)lparam);
+			return(0);
+
+		case LOBBY_MSG_TRACK_GET_POS:
+			return(UI_Lobby_Get_Position(window, id));
+
+		case LOBBY_MSG_TRACK_SET_STEP:
+			UI_Lobby_Set_Step(window, id, (int)lparam);
+			return(0);
+
+		case LOBBY_MSG_LIST_RESET:
+		case LOBBY_MSG_COMBO_RESET:
+			UI_Lobby_Reset(window, id);
+			return(0);
+
+		case LOBBY_MSG_LIST_INSERT:
+		case LOBBY_MSG_COMBO_INSERT: {
+			UILobbyItem item;
+			item.Text = (lparam != 0) ? (char const *)lparam : "";
+			UI_Lobby_Add(window, id, item);
+			return(UI_Lobby_Get_Count(window, id) - 1);
+		}
+
+		case LOBBY_MSG_LIST_GET_COUNT:
+		case LOBBY_MSG_COMBO_GET_COUNT:
+			return(UI_Lobby_Get_Count(window, id));
+
+		case LOBBY_MSG_LIST_GET_CUR_SEL:
+		case LOBBY_MSG_COMBO_GET_CUR_SEL:
+			return(UI_Lobby_Get_Cur_Sel(window, id));
+
+		case LOBBY_MSG_LIST_SET_CUR_SEL:
+		case LOBBY_MSG_COMBO_SET_CUR_SEL:
+			UI_Lobby_Set_Cur_Sel(window, id, (int)wparam);
+			return(0);
+
+		case LOBBY_MSG_LIST_GET_SEL:
+			return(UI_Lobby_Get_Sel(window, id, (int)wparam) ? 1 : 0);
+
+		case LOBBY_MSG_LIST_SET_SEL:
+			UI_Lobby_Set_Sel(window, id, wparam != 0, (int)lparam);
+			return(0);
+
+		case LOBBY_MSG_LIST_SELECT_RANGE:
+			UI_Lobby_Select_Range(window, id, wparam != 0, Lobby_Low_Word(lparam), Lobby_High_Word(lparam));
+			return(0);
+
+		case LOBBY_MSG_COMBO_SET_ITEM_DATA:
+			UI_Lobby_Set_Item_Data(window, id, (int)wparam, (int)lparam);
+			return(0);
+
+		case LOBBY_MSG_COMBO_GET_ITEM_DATA:
+			return(UI_Lobby_Get_Item_Data(window, id, (int)wparam));
+
+		case LOBBY_MSG_COMBO_GET_DROPPED:
+			return(UI_Lobby_Is_Dropped(window, id) ? 1 : 0);
+
+		case LOBBY_MSG_SET_COLOR:
+			UI_Lobby_Set_Item_Color(window, id, (int)wparam, (int)lparam);
+			return(0);
+
+		default:
+			return(0);
+	}
+}
+
+
+void Lobby_Enable_Item(WSScreenHandle window, int id, bool enable)
+{
+	UI_Lobby_Enable(window, id, enable);
+}
+
+
+bool Lobby_Is_Item_Enabled(WSScreenHandle window, int id)
+{
+	return(UI_Lobby_Is_Enabled(window, id));
+}
+
+
+// A lobby screen or the map picker shows the new map preview. Any other handle, such as the
+// main window the skirmish screen names, is repainted.
+void Lobby_Invalidate(WSScreenHandle window)
+{
+	if (UI_Lobby_Is_Open(window) || WS_Is_Screen(window)) {
+		UI_Lobby_Preview_Changed();
+		return;
+	}
+	Host_Invalidate_Window();
+}
+
+
+void Lobby_Show(WSScreenHandle window, bool show)
+{
+	UI_Lobby_Show(window, show);
+}
+
+
+// Sends WM_COMMAND on a control's behalf, calling the screen's dialog procedure as
+// SendMessage would have called the dialog's.
+void Lobby_Command(WSScreenHandle window, LobbyProc proc, int id, int notify)
+{
+	if (UI_Lobby_Is_Open(window)) {
+		proc(window, LOBBY_MSG_COMMAND, Lobby_Make_Param(id, notify), 0);
+	}
+}
+
+
 /// <summary>
 /// Fetches the game options dialog that is currently up.
 /// The same options are presented by four different dialogs depending on how the game was
@@ -108,9 +266,9 @@ unsigned int Wstring_Hash(Wstring & string)
 /// </summary>
 /// <returns>Returns with the handle of the open game options dialog. NULL is returned if
 /// none of them is up.</returns>
-HWND GameoptWindow(void)
+WSScreenHandle GameoptWindow(void)
 {
-	HWND dialog;
+	WSScreenHandle dialog;
 
 	dialog = WS_Find_Dialog(IDD_MPLAYER_HOST);
 	if (dialog) {
@@ -143,176 +301,15 @@ void __cdecl PMessagePrintf(int color, const char * fmt, ...)
 	va_end(va);
 
 	if (WS_Top_Window() != 0) {
-		HWND top = WS_Top_Window();
-		HWND msg = GetDlgItem(top, IDC_PMESSAGES);
-		while (msg == 0) {
+		WSScreenHandle top = WS_Top_Window();
+		while (top != 0) {
+			if (UI_Lobby_Has_Control(top, IDC_PMESSAGES)) {
+				UI_Lobby_Add_Message(top, IDC_PMESSAGES, buffer, color);
+				return;
+			}
 			top = WS_Next_Lower_Dialog(top);
-			if (top == 0) {
-				msg = 0;
-				break;
-			}
-			msg = GetDlgItem(top, IDC_PMESSAGES);
-		}
-
-		if (msg != 0) {
-			_DrawMessage(color, buffer, msg);
 		}
 	}
-}
-
-
-/// <summary>
-/// Prints a formatted system message to the player.
-/// This routine hunts down the topmost dialog that has somewhere to show system messages and
-/// puts the text there, so the caller does not have to know which dialog the player is
-/// looking at. If no dialog wants system messages, the message is quietly dropped.
-/// </summary>
-/// <param name="color">Color to display the message in, or -1 for the default.</param>
-/// <param name="fmt">Printf style format string for the message.</param>
-void __cdecl SMessagePrintf(int color, const char * fmt, ...)
-{
-	va_list va;
-	static char buffer[1024];
-	memset(buffer, 0, sizeof(buffer));
-
-	va_start(va, fmt);
-	vsprintf(buffer, fmt, va);
-	va_end(va);
-
-	if (WS_Top_Window() != 0) {
-		HWND top = WS_Top_Window();
-		HWND msg = GetDlgItem(top, IDC_SMESSAGES);
-		while (msg == 0) {
-			top = WS_Next_Lower_Dialog(top);
-			if (top == 0) {
-				msg = 0;
-				break;
-			}
-			msg = GetDlgItem(top, IDC_SMESSAGES);
-		}
-
-		if (msg != 0) {
-			_DrawMessage(color, buffer, msg);
-		}
-	}
-}
-
-
-/// <summary>
-/// Draws a message into a message list box.
-/// This routine word wraps the message to the width of the list box and adds each resulting
-/// line as its own entry, so that a long chat message stays readable. Embedded newlines
-/// break the text as well.
-/// </summary>
-/// <param name="color">Color to display the message in, or -1 for the list box
-/// default.</param>
-/// <param name="message">The text to display.</param>
-/// <param name="window">The message list box to display the text in.</param>
-void _DrawMessage(int color, const char * message, HWND window)
-{
-	RECT rect;
-
-	int length = strlen(message);
-
-	int offset = 18;
-	Get_Display_Rect(window, &rect);
-	if (SendMessage(window, OD_HASATTACHED, 0, 0)) {
-		offset = 1;
-	}
-
-	HDC hdc = GetDC(window);
-	SendMessage(window, OD_RESTOREDC, 0, (LPARAM)hdc);
-
-	while (length) {
-		if (message != NULL) {
-			char const * newline = strchr(message, '\n');
-			if (newline != NULL) {
-				int linelen = newline - message + 1;
-				if (length >= linelen) {
-					length = linelen;
-				}
-			}
-		}
-
-		SIZE size;
-		GetTextExtentPoint32(hdc, message, length, &size);
-		int maxWidth = rect.right - rect.left - offset;
-
-		if (size.cx >= maxWidth - 4) {
-			int reduceBy;
-			if (size.cx / 2 > maxWidth) {
-				reduceBy = 10;
-				length -= reduceBy;
-			} else {
-				reduceBy = 1;
-			}
-
-			int found = -1;
-			int idx = length - 1;
-
-			while (idx > 0) {
-				if (!isgraph((unsigned char)message[idx])) {
-					found = idx;
-					break;
-				}
-				idx--;
-			}
-
-			if (found == -1) {
-				length -= reduceBy;
-				found = length;
-			}
-			length = found;
-		} else {
-			_SetMessageString(window, message, length, color);
-			message += length;
-			length = strlen(message);
-		}
-	}
-
-	ReleaseDC(window, hdc);
-}
-
-
-/// <summary>
-/// Adds a single line of text to a message list box.
-/// This is the low level routine that _DrawMessage uses once it has decided where the text
-/// should break. The list box is capped, so a long game does not pile up messages without
-/// limit.
-/// </summary>
-/// <param name="window">The message list box to add the line to.</param>
-/// <param name="message">The text to add; only the leading characters are taken.</param>
-/// <param name="length">Number of characters of the message to add.</param>
-/// <param name="color">Color to display the line in, or -1 for the list box default.</param>
-void _SetMessageString(HWND window,  const char * message, int length, int color)
-{
-	static char buffer[1024];
-	memset(buffer, 0, sizeof(buffer));
-	strncpy(buffer, message, length);
-	char * line_end = strchr(buffer, '\r');
-	if (line_end != NULL) {
-		line_end[0] = '\0';
-	} else {
-		line_end = strchr(buffer, '\n');
-		if (line_end != NULL) {
-			line_end[0] = '\0';
-		}
-	}
-
-	int old = SendMessage(window, OD_DISABLEPAINT, 0, 1);
-	int topindex = ListBox_GetCount(window);
-	if (topindex > 500) {
-		ListBox_DeleteString(window, 0);
-		topindex--;
-	}
-
-	int index = ListBox_InsertString(window, -1, buffer);
-	if (color != -1) {
-		SendMessage(window, OD_SETCOLOR, index, color);
-	}
-
-	ListBox_SetTopIndex(window, topindex);
-	SendMessage(window, OD_DISABLEPAINT, 0, old);
 }
 
 
@@ -353,6 +350,22 @@ int CountAliveTeams(HouseClass * house)
 }
 
 
+// A message box screen acts on its buttons after the wait's pump, as the dialog acted on
+// them inside it.
+static void Message_Box_Screen_Proc(WSScreenHandle screen, WSScreenEventType event)
+{
+	if (event == WS_SCREEN_DESTROYED) {
+		UI_Net_Message_Box_Close(screen);
+		return;
+	}
+
+	int const pressed = UI_Net_Message_Box_Service(screen);
+	if (pressed != 0) {
+		ODMessageBox_Proc(screen, LOBBY_MSG_COMMAND, Lobby_Make_Param(pressed, LOBBY_NOTIFY_CLICKED), 0);
+	}
+}
+
+
 /// <summary>
 /// Displays an owner drawn message box and waits for an answer.
 /// Use this routine in place of the Windows message box so that the prompt matches the
@@ -364,74 +377,45 @@ int CountAliveTeams(HouseClass * house)
 /// <param name="type">The button layout to use; MB_OK, MB_OKCANCEL or MB_YESNO.</param>
 /// <param name="callback">Idle routine to poll while the box is up.</param>
 /// <param name="large">Should the large version of the box be used?</param>
-/// <returns>Returns with the control ID of the button the player pressed. Zero is returned
-/// if there was nothing to display.</returns>
+/// <returns>Returns with the control ID of the button the player pressed, or IDCANCEL if
+/// the box could not be shown. Zero is returned if there was nothing to display.</returns>
 int ODMessageBox(const char * text, int type, bool (*callback)(void), bool large)
 {
 	if (text != NULL && strlen(text) > 0) {
-		HWND dialog;
-		if (type == MB_OKCANCEL) {
-			dialog = WS_Create_Dialog(ProgramInstance, IDD_MSGBOX_2, MainWindow, ODMessageBox_Proc, false);
-		} else {
-			if (large) {
-				dialog = WS_Create_Dialog(ProgramInstance, IDD_MSGBOX_3_LARGE, MainWindow, ODMessageBox_Proc, false);
-			} else {
-				dialog = WS_Create_Dialog(ProgramInstance, IDD_MSGBOX_3_SMALL, MainWindow, ODMessageBox_Proc, false);
-			}
-			if (type == MB_OK) {
-				HWND ok = GetDlgItem(dialog, IDOK);
-				SetWindowLong(ok, GWL_STYLE, GetWindowLong(ok, GWL_STYLE) | WS_VISIBLE);
-			}
-			if (type == MB_YESNO) {
-				HWND yes = GetDlgItem(dialog, IDYES);
-				SetWindowLong(yes, GWL_STYLE, GetWindowLong(yes, GWL_STYLE) | WS_VISIBLE);
-				HWND no = GetDlgItem(dialog, IDNO);
-				SetWindowLong(no, GWL_STYLE, GetWindowLong(no, GWL_STYLE) | WS_VISIBLE);
-			}
+		int const id = (type == OD_BOX_OK_CANCEL) ? IDD_MSGBOX_2 : (large ? IDD_MSGBOX_3_LARGE : IDD_MSGBOX_3_SMALL);
+		bool const two = (type == OD_BOX_OK_CANCEL);
+		WSScreenHandle const screen = WS_Screen_Handle();
+		if (!UI_Net_Message_Box_Open(screen, id, text, two || type == OD_BOX_OK, two, type == OD_BOX_YES_NO, type == OD_BOX_YES_NO)) {
+			DebugString("The network message box could not be prepared; treating it as cancelled\n");
+			return(DIALOG_CANCEL);
 		}
-		Center_Window_Within_Window(dialog);
-		SendDlgItemMessage(dialog, IDC_MSGBOX_TEXT, WM_SETTEXT, 0, (LPARAM)text);
-		OwnerDraw::Subclass_Dialog(dialog, 0);
-		ShowWindow(dialog, SW_NORMAL);
-		return(WS_Wait_Dialog(dialog, callback));
+		WS_Push_Screen(screen, id, Message_Box_Screen_Proc);
+		return(WS_Wait_Dialog(screen, callback));
 	}
 	return(0);
 }
 
 
 /// <summary>
-/// Handles the messages for the owner drawn message box.
-/// This routine paints the box through the owner draw system and tears it down with
-/// whichever of the buttons the player pressed.
+/// Handles the buttons of the owner drawn message box, tearing it down with whichever of
+/// them the player pressed.
 /// </summary>
 /// <returns>Returns with TRUE if the message was dealt with here, FALSE otherwise.</returns>
-INT_PTR CALLBACK ODMessageBox_Proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
+LobbyResult ODMessageBox_Proc(WSScreenHandle window, unsigned int message, LobbyWParam wparam, LobbyLParam lparam)
 {
 	switch (message) {
-		case WM_DRAWITEM:
-			OwnerDraw::Draw_Item((LPDRAWITEMSTRUCT)lparam);
-			return(TRUE);
-
-		case WM_PAINT:
-			OwnerDraw::Draw_Dialog_Back(window);
-			ValidateRect(window, NULL);
-			return(TRUE);
-
-		case WM_ERASEBKGND:
-			return(TRUE);
-
-		case WM_COMMAND:
-			switch (LOWORD(wparam)) {
-				case IDOK:
-				case IDCANCEL:
-				case IDYES:
-				case IDNO:
-					WS_Destroy_Dialog(window, LOWORD(wparam));
-					return(TRUE);
+		case LOBBY_MSG_COMMAND:
+			switch (Lobby_Low_Word(wparam)) {
+				case DIALOG_OK:
+				case DIALOG_CANCEL:
+				case DIALOG_YES:
+				case DIALOG_NO:
+					WS_Destroy_Dialog(window, Lobby_Low_Word(wparam));
+					return(true);
 			}
 			break;
 	}
-	return(FALSE);
+	return(false);
 }
 
 
@@ -443,7 +427,7 @@ INT_PTR CALLBACK ODMessageBox_Proc(HWND window, UINT message, WPARAM wparam, LPA
 /// </summary>
 /// <param name="window">The game options dialog to update.</param>
 /// <param name="initialize">Is this the first call for a freshly created dialog?</param>
-void DisplayGameopts(HWND window, BOOL initialize)
+void DisplayGameopts(WSScreenHandle window, bool initialize)
 {
 	#define MP_MIN_MONEY 2500
 
@@ -451,74 +435,74 @@ void DisplayGameopts(HWND window, BOOL initialize)
 		if (Session.Type == GAME_INTERNET && Session.IsWDT) {
 			WDTTerritory * territory = WDT_Get_Territory(Session.WDTTerritory);
 			if (territory != NULL) {
-				EnableWindow(GetDlgItem(window, IDC_YOURSIDE), FALSE);
-				EnableWindow(GetDlgItem(window, IDC_AIPLAYERS), FALSE);
-				EnableWindow(GetDlgItem(window, IDC_AILEVEL_SLIDER), FALSE); /// AI Difficulty
+				Lobby_Enable_Item(window, IDC_YOURSIDE, false);
+				Lobby_Enable_Item(window, IDC_AIPLAYERS, false);
+				Lobby_Enable_Item(window, IDC_AILEVEL_SLIDER, false); /// AI Difficulty
 
 				if (!territory->UserModUnitCount) {
-					EnableWindow(GetDlgItem(window, IDC_UNITCOUNT), FALSE);
+					Lobby_Enable_Item(window, IDC_UNITCOUNT, false);
 				}
 				if (!territory->UserModTechLevel) {
-					EnableWindow(GetDlgItem(window, IDC_TECHLEVEL), FALSE);
+					Lobby_Enable_Item(window, IDC_TECHLEVEL, false);
 				}
 				if (!territory->UserModCredits) {
-					EnableWindow(GetDlgItem(window, IDC_CREDITS), FALSE);
+					Lobby_Enable_Item(window, IDC_CREDITS, false);
 				}
 				if (!territory->UserModAlliances) {
-					EnableWindow(GetDlgItem(window, IDC_ALLIES), FALSE);
+					Lobby_Enable_Item(window, IDC_ALLIES, false);
 				}
 				if (!territory->UserModHarvesterTruce) {
-					EnableWindow(GetDlgItem(window, IDC_HARVTRUCE), FALSE);
+					Lobby_Enable_Item(window, IDC_HARVTRUCE, false);
 				}
 				if (!territory->UserModBases) {
-					EnableWindow(GetDlgItem(window, IDC_BASES), FALSE);
+					Lobby_Enable_Item(window, IDC_BASES, false);
 				}
 				if (!territory->UserModMCVRedeploy) {
-					EnableWindow(GetDlgItem(window, IDC_REDEPLOY_MCV), FALSE); /// Re-Deployable MCV
+					Lobby_Enable_Item(window, IDC_REDEPLOY_MCV, false); /// Re-Deployable MCV
 				}
 				if (!territory->UserModFogOfWar) {
-					EnableWindow(GetDlgItem(window, IDC_FOG_OF_WAR), FALSE); /// Fog of War
+					Lobby_Enable_Item(window, IDC_FOG_OF_WAR, false); /// Fog of War
 				}
 				if (!territory->UserModBridgeDestruction) {
-					EnableWindow(GetDlgItem(window, IDC_BRIDGE_DESTROY), FALSE);
+					Lobby_Enable_Item(window, IDC_BRIDGE_DESTROY, false);
 				}
 				if (!territory->UserModCrates) {
-					EnableWindow(GetDlgItem(window, IDC_CRATES), FALSE);
+					Lobby_Enable_Item(window, IDC_CRATES, false);
 				}
 				if (!territory->UserModShortGame) {
-					EnableWindow(GetDlgItem(window, IDC_SHORT_GAME), FALSE); /// Short Game
+					Lobby_Enable_Item(window, IDC_SHORT_GAME, false); /// Short Game
 				}
 				if (!territory->UserModCrapEngineer) {
-					EnableWindow(GetDlgItem(window, IDC_MULTI_ENGINEER), FALSE); /// Crap Engineers
+					Lobby_Enable_Item(window, IDC_MULTI_ENGINEER, false); /// Crap Engineers
 				}
 			}
 		}
-		SendDlgItemMessage(window, IDC_UNITCOUNT, TBM_SETRANGE, TRUE, MAKELONG(1, 10));
-		SendDlgItemMessage(window, IDC_TECHLEVEL, TBM_SETRANGE, TRUE, MAKELONG(1, MPLAYER_BUILD_LEVEL_MAX));
-		SendDlgItemMessage(window, IDC_CREDITS, TBM_SETRANGE, TRUE, MAKELONG(MP_MIN_MONEY, Rule->MPMaxMoney));
-		SendDlgItemMessage(window, IDC_CREDITS, OD_SETTRACKSTEP, 0, 100);
-		SendDlgItemMessage(window, IDC_AIPLAYERS, TBM_SETRANGE, TRUE, MAKELONG(0, 6));
-		SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, TBM_SETRANGE, TRUE, MAKELONG(0, 2)); /// AI Difficulty
-		SendDlgItemMessage(window, IDC_GAME_SPEED_SLIDER, TBM_SETRANGE, TRUE, MAKELONG(0, 6)); /// Game Speed
+		Lobby_Send(window, IDC_UNITCOUNT, LOBBY_MSG_TRACK_SET_RANGE, true, Lobby_Make_Param(1, 10));
+		Lobby_Send(window, IDC_TECHLEVEL, LOBBY_MSG_TRACK_SET_RANGE, true, Lobby_Make_Param(1, MPLAYER_BUILD_LEVEL_MAX));
+		Lobby_Send(window, IDC_CREDITS, LOBBY_MSG_TRACK_SET_RANGE, true, Lobby_Make_Param(MP_MIN_MONEY, Rule->MPMaxMoney));
+		Lobby_Send(window, IDC_CREDITS, LOBBY_MSG_TRACK_SET_STEP, 0, 100);
+		Lobby_Send(window, IDC_AIPLAYERS, LOBBY_MSG_TRACK_SET_RANGE, true, Lobby_Make_Param(0, 6));
+		Lobby_Send(window, IDC_AILEVEL_SLIDER, LOBBY_MSG_TRACK_SET_RANGE, true, Lobby_Make_Param(0, 2)); /// AI Difficulty
+		Lobby_Send(window, IDC_GAME_SPEED_SLIDER, LOBBY_MSG_TRACK_SET_RANGE, true, Lobby_Make_Param(0, 6)); /// Game Speed
 	}
 
-	SendDlgItemMessage(window, IDC_UNITCOUNT, TBM_SETPOS, TRUE, Session.Options.UnitCount);
-	SendDlgItemMessage(window, IDC_TECHLEVEL, TBM_SETPOS, TRUE, BuildLevel);
-	SendDlgItemMessage(window, IDC_CREDITS, TBM_SETPOS, TRUE, Session.Options.Credits);
-	SendDlgItemMessage(window, IDC_AIPLAYERS, TBM_SETPOS, TRUE, Session.Options.AIPlayers);
-	SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, TBM_SETPOS, TRUE, Session.Options.AIDifficulty);
-	SendDlgItemMessage(window, IDC_GAME_SPEED_SLIDER, TBM_SETPOS, TRUE, 6 - Session.Options.GameSpeed);
+	Lobby_Send(window, IDC_UNITCOUNT, LOBBY_MSG_TRACK_SET_POS, true, Session.Options.UnitCount);
+	Lobby_Send(window, IDC_TECHLEVEL, LOBBY_MSG_TRACK_SET_POS, true, BuildLevel);
+	Lobby_Send(window, IDC_CREDITS, LOBBY_MSG_TRACK_SET_POS, true, Session.Options.Credits);
+	Lobby_Send(window, IDC_AIPLAYERS, LOBBY_MSG_TRACK_SET_POS, true, Session.Options.AIPlayers);
+	Lobby_Send(window, IDC_AILEVEL_SLIDER, LOBBY_MSG_TRACK_SET_POS, true, Session.Options.AIDifficulty);
+	Lobby_Send(window, IDC_GAME_SPEED_SLIDER, LOBBY_MSG_TRACK_SET_POS, true, 6 - Session.Options.GameSpeed);
 
-	int button_state[] = { BST_UNCHECKED, BST_CHECKED };
-	SendDlgItemMessage(window, IDC_BRIDGE_DESTROY, BM_SETCHECK, button_state[Session.Options.BridgeDestruction], 0);
-	SendDlgItemMessage(window, IDC_FOG_OF_WAR, BM_SETCHECK, button_state[Session.Options.FogOfWar], 0);
-	SendDlgItemMessage(window, IDC_CRATES, BM_SETCHECK, button_state[Session.Options.Goodies], 0);
-	SendDlgItemMessage(window, IDC_ALLIES, BM_SETCHECK, button_state[Session.Options.AlliesAllowed], 0);
-	SendDlgItemMessage(window, IDC_HARVTRUCE, BM_SETCHECK, button_state[Session.Options.HarvTruce], 0);
-	SendDlgItemMessage(window, IDC_BASES, BM_SETCHECK, button_state[Session.Options.Bases], 0);
-	SendDlgItemMessage(window, IDC_REDEPLOY_MCV, BM_SETCHECK, button_state[Session.Options.MCVRedeploy], 0);
-	SendDlgItemMessage(window, IDC_SHORT_GAME, BM_SETCHECK, button_state[Session.Options.ShortGame], 0);
-	SendDlgItemMessage(window, IDC_MULTI_ENGINEER, BM_SETCHECK, button_state[Session.Options.CrapEngineers], 0);
+	int button_state[] = { LOBBY_UNCHECKED, LOBBY_CHECKED };
+	Lobby_Send(window, IDC_BRIDGE_DESTROY, LOBBY_MSG_SET_CHECK, button_state[Session.Options.BridgeDestruction], 0);
+	Lobby_Send(window, IDC_FOG_OF_WAR, LOBBY_MSG_SET_CHECK, button_state[Session.Options.FogOfWar], 0);
+	Lobby_Send(window, IDC_CRATES, LOBBY_MSG_SET_CHECK, button_state[Session.Options.Goodies], 0);
+	Lobby_Send(window, IDC_ALLIES, LOBBY_MSG_SET_CHECK, button_state[Session.Options.AlliesAllowed], 0);
+	Lobby_Send(window, IDC_HARVTRUCE, LOBBY_MSG_SET_CHECK, button_state[Session.Options.HarvTruce], 0);
+	Lobby_Send(window, IDC_BASES, LOBBY_MSG_SET_CHECK, button_state[Session.Options.Bases], 0);
+	Lobby_Send(window, IDC_REDEPLOY_MCV, LOBBY_MSG_SET_CHECK, button_state[Session.Options.MCVRedeploy], 0);
+	Lobby_Send(window, IDC_SHORT_GAME, LOBBY_MSG_SET_CHECK, button_state[Session.Options.ShortGame], 0);
+	Lobby_Send(window, IDC_MULTI_ENGINEER, LOBBY_MSG_SET_CHECK, button_state[Session.Options.CrapEngineers], 0);
 }
 
 
@@ -640,9 +624,9 @@ void PumpGameopts(bool force, bool now)
 			_last_harvester_truce = Session.Options.HarvTruce;
 			_last_capture_the_flag = Session.Options.CTF;
 			_last_fog_of_war = Session.Options.FogOfWar;
-			strcpy(_last_scenario_description, Session.Options.ScenarioDescription);
-			strcpy(_last_scenario_digest, Session.ScenarioDigest);
-			strcpy(_last_scenario_file_name, Session.ScenarioFileName);
+			UTF8::Copy(_last_scenario_description, Session.Options.ScenarioDescription);
+			UTF8::Copy(_last_scenario_digest, Session.ScenarioDigest);
+			UTF8::Copy(_last_scenario_file_name, Session.ScenarioFileName);
 			_last_scenario_file_length = Session.ScenarioFileLength;
 			_last_scenario_is_official = Session.ScenarioIsOfficial;
 
@@ -740,7 +724,6 @@ bool DecodePubGameopt(char * options, char * name)
 		return(false);
 	}
 
-	SendDlgItemMessage(GameoptWindow(), IDC_USERS, OD_DISABLEPAINT, 0, 1);
 	DebugString("Decoding game options %s\n", options);
 
 	token = strtok(token, ",");
@@ -884,7 +867,7 @@ bool DecodePubGameopt(char * options, char * name)
 		}
 	}
 
-	SendDlgItemMessage(GameoptWindow(), IDC_SCENARIONAME, WM_SETTEXT, 0, (LPARAM)Session.Options.ScenarioDescription);
+	Lobby_Send(GameoptWindow(), IDC_SCENARIONAME, LOBBY_MSG_SET_TEXT, 0, (LobbyLParam)Session.Options.ScenarioDescription);
 
 	Scen->Scenario = -1;
 	Frame = 0;
@@ -960,20 +943,16 @@ bool DecodePubGameopt(char * options, char * name)
 			PMessagePrintf(-1, Fetch_String(TXT_HOST_CHANGED_OPTIONS));
 
 			char buffer[64];
-			sprintf(buffer, "A0");
+			snprintf(buffer, sizeof(buffer), "A0");
 			SendPublicGameopts(buffer);
 
-			EnableWindow(GetDlgItem(GameoptWindow(), IDC_ACCEPT), TRUE);
-			InvalidateRect(GetDlgItem(GameoptWindow(), IDC_ACCEPT), NULL, FALSE);
+			Lobby_Enable_Item(GameoptWindow(), IDC_ACCEPT, true);
 		} else {
-			if (!IsWindowEnabled(GetDlgItem(GameoptWindow(), IDC_ACCEPT))) {
-				EnableWindow(GetDlgItem(GameoptWindow(), IDC_ACCEPT), TRUE);
-				InvalidateRect(GetDlgItem(GameoptWindow(), IDC_ACCEPT), NULL, FALSE);
+			if (!Lobby_Is_Item_Enabled(GameoptWindow(), IDC_ACCEPT)) {
+				Lobby_Enable_Item(GameoptWindow(), IDC_ACCEPT, true);
 			}
 		}
 	}
-
-	SendDlgItemMessage(GameoptWindow(), IDC_USERS, OD_DISABLEPAINT, 0, 0);
 
 	Net2DisplayUsers();
 
@@ -1002,83 +981,6 @@ bool DecodePubGameopt(char * options, char * name)
 
 
 /// <summary>
-/// Saves the current selection of a list box.
-/// The multiplayer dialogs rebuild their list boxes from scratch whenever the game state
-/// changes. Call this routine first so that whatever the player had highlighted can be put
-/// back afterwards.
-/// </summary>
-/// <param name="listbox">The list box to record the selection of.</param>
-/// <param name="lbdict">The dictionary to record the selected entries into.</param>
-void LBSaveSelections(HWND listbox, Dictionary<Wstring,bool> & lbdict)
-{
-	int count = ListBox_GetCount(listbox);
-	char buffer[128];
-	Wstring key;
-
-	if (count) {
-		int style = GetWindowLong(listbox, GWL_STYLE);
-		if (style & LBS_MULTIPLESEL) {
-			for (int i = 0; i < count; i++) {
-				if (ListBox_GetSel(listbox, i) != 0) {
-					ListBox_GetText(listbox, i, buffer);
-					key = buffer;
-					bool value = true;
-					lbdict.add(key, value);
-				}
-			}
-		} else if (!(style & LBS_NOSEL)) {
-			int index = ListBox_GetCurSel(listbox);
-			if (index >= 0) {
-				buffer[0] = '\0';
-				ListBox_GetText(listbox, index, buffer);
-				key = buffer;
-				bool value = true;
-				lbdict.add(key, value);
-			}
-		}
-	}
-}
-
-
-/// <summary>
-/// Restores a list box selection that was saved earlier.
-/// This routine is the other half of LBSaveSelections. Call it once the list box has been
-/// refilled to put the player's highlight back where it was.
-/// </summary>
-/// <param name="listbox">The list box to restore the selection within.</param>
-/// <param name="lbdict">The dictionary the selection was saved into.</param>
-void LBRestoreSelections(HWND listbox, Dictionary<Wstring,bool> & lbdict)
-{
-	int count = ListBox_GetCount(listbox);
-	Wstring key;
-
-	if (count) {
-		int style = GetWindowLong(listbox, GWL_STYLE);
-		if (style & LBS_MULTIPLESEL) {
-			for (int i = 0; i < count; i++) {
-				char buffer[128];
-				ListBox_GetText(listbox, i, buffer);
-				key = buffer;
-				if (lbdict.contains(key)) {
-					ListBox_SetSel(listbox, TRUE, i);
-				}
-			}
-		} else if (!(style & LBS_NOSEL)) {
-			bool value;
-			if (lbdict.removeAny(key, value)) {
-				char buffer[128];
-				strcpy(buffer, key.get());
-				int index = ListBox_FindStringExact(listbox, -1, buffer);
-				if (index != LB_ERR) {
-					ListBox_SetCurSel(listbox, index);
-				}
-			}
-		}
-	}
-}
-
-
-/// <summary>
 /// Fetches the number of starting positions a scenario offers.
 /// This routine is used to check that there is somewhere to put every player before a map is
 /// allowed into a multiplayer game.
@@ -1100,7 +1002,7 @@ int RandomMapWaypointCount(int index)
 		int count = 0;
 
 		for (int i = 0; i < MAX_PLAYERS; i++) {
-			sprintf(wp, "%d", i);
+			snprintf(wp, sizeof(wp), "%d", i);
 			if (ini.Get_Int("Waypoints", wp, -1) != -1) {
 				count++;
 			}
@@ -1118,7 +1020,39 @@ int RandomMapWaypointCount(int index)
 
 static int LastPreviewedScenario;
 static int OriginalScenario;
-static HWND ScenarioPick;
+static WSScreenHandle ScenarioPick;
+
+// The rows put into a map picker screen's list so far.
+static std::vector<std::string> _PickRows;
+
+
+// The map picker's list. The owner-draw list ignored a selection past its end.
+static LobbyResult Map_List_Send(WSScreenHandle window, unsigned int message, LobbyWParam wparam, LobbyLParam lparam)
+{
+	switch (message) {
+		case LOBBY_MSG_LIST_GET_CUR_SEL:
+			return(UI_Map_Select_Get_Selection(window));
+
+		case LOBBY_MSG_LIST_RESET:
+			_PickRows.clear();
+			UI_Map_Select_Set_Maps(window, _PickRows, -1);
+			return(0);
+
+		case LOBBY_MSG_LIST_INSERT:
+			_PickRows.push_back((lparam != 0) ? (char const *)lparam : "");
+			UI_Map_Select_Set_Maps(window, _PickRows, UI_Map_Select_Get_Selection(window));
+			return((LobbyResult)_PickRows.size() - 1);
+
+		case LOBBY_MSG_LIST_SET_CUR_SEL:
+			if ((int)wparam >= -1 && (int)wparam < (int)_PickRows.size()) {
+				UI_Map_Select_Set_Maps(window, _PickRows, (int)wparam);
+			}
+			return(0);
+
+		default:
+			return(0);
+	}
+}
 
 
 /// <summary>
@@ -1130,7 +1064,7 @@ static HWND ScenarioPick;
 /// <returns>bool; Should the dialog be shut down?</returns>
 bool Scenario_Select_Callback(void)
 {
-	int index = SendDlgItemMessage(ScenarioPick, IDC_AILEVEL_SLIDER, LB_GETCURSEL, 0, 0);
+	int index = Map_List_Send(ScenarioPick, LOBBY_MSG_LIST_GET_CUR_SEL, 0, 0);
 	if (index != LastPreviewedScenario && index != -1) {
 		Set_Scenario_Info_From_Index(index);
 		if (stricmp(Session.Scenarios[index]->Get_Filename(), "RandMap.Sed") == 0) {
@@ -1140,7 +1074,7 @@ bool Scenario_Select_Callback(void)
 			if (MultiplayerMapPreview->Get_Preview_Surface() == NULL) {
 				Update_Network_Dialog_Preview(ScenarioPick);
 			}
-			InvalidateRect(ScenarioPick, NULL, FALSE);
+			Lobby_Invalidate(ScenarioPick);
 		} else {
 			Update_Network_Dialog_Preview(ScenarioPick);
 		}
@@ -1155,7 +1089,23 @@ bool Scenario_Select_Callback(void)
 	return(false);
 }
 
-INT_PTR CALLBACK Scenario_DlgProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+LobbyResult Scenario_DlgProc(WSScreenHandle window, unsigned int message, LobbyWParam wparam, LobbyLParam lparam);
+
+
+// A map picker screen acts on its buttons after the wait's pump, as the dialog acted on them
+// inside it.
+static void Map_Select_Screen_Proc(WSScreenHandle screen, WSScreenEventType event)
+{
+	if (event == WS_SCREEN_DESTROYED) {
+		UI_Map_Select_Close(screen);
+		return;
+	}
+
+	int const pressed = UI_Map_Select_Service(screen);
+	if (pressed != 0) {
+		Scenario_DlgProc(screen, LOBBY_MSG_COMMAND, Lobby_Make_Param(pressed, LOBBY_NOTIFY_CLICKED), 0);
+	}
+}
 
 
 /// <summary>
@@ -1163,77 +1113,62 @@ INT_PTR CALLBACK Scenario_DlgProc(HWND window, UINT message, WPARAM wparam, LPAR
 /// Use this routine to let the host choose the scenario for the game. The dialog does not
 /// return until the player settles on a map or backs out.
 /// </summary>
-/// <param name="top">The window to parent and center the dialog against.</param>
 /// <returns>Returns with the control ID that dismissed the dialog, either IDOK or
-/// IDCANCEL.</returns>
-int Scenario_Dialog(HWND top)
+/// IDCANCEL. IDCANCEL is returned if the dialog could not be shown.</returns>
+int Scenario_Dialog(WSScreenHandle)
 {
 	Hide_Mouse();
 	Draw_Menu_Background();
 	Show_Mouse();
-	ScenarioPick = WS_Create_Dialog(ProgramInstance, IDD_MPLAYER_SELECT_MAP, top, Scenario_DlgProc, FALSE);
-	Center_Window_Within_Window(ScenarioPick);
-	OwnerDraw::Subclass_Dialog(ScenarioPick, 0);
-	ShowWindow(ScenarioPick, SW_NORMAL);
+
+	WSScreenHandle const screen = WS_Screen_Handle();
+	if (!UI_Map_Select_Open(screen, std::vector<std::string>(), -1)) {
+		DebugString("The map picker could not be prepared; treating it as cancelled\n");
+		return(DIALOG_CANCEL);
+	}
+
+	ScenarioPick = screen;
+	WS_Push_Screen(screen, IDD_MPLAYER_SELECT_MAP, Map_Select_Screen_Proc);
+	Scenario_DlgProc(screen, LOBBY_MSG_SUBCLASSED, 0, 0);
 	return(WS_Wait_Dialog(ScenarioPick, Scenario_Select_Callback));
 }
 
 
 /// <summary>
 /// Handles the messages for the multiplayer map selection dialog.
-/// This routine fills the map list, paints the preview of the highlighted map, and services
-/// the random map generator button.
+/// This routine fills the map list and services the random map generator button.
 /// </summary>
 /// <returns>Returns with TRUE if the message was dealt with here, FALSE to leave it to the
 /// dialog manager.</returns>
-INT_PTR CALLBACK Scenario_DlgProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
+LobbyResult Scenario_DlgProc(WSScreenHandle window, unsigned int message, LobbyWParam wparam, LobbyLParam)
 {
 	switch (message) {
-		case WM_NCDESTROY:
-			On_WM_NCDESTROY(window);
-			break;
-
-		case WM_PAINT:
-			OwnerDraw::Draw_Dialog_Back(window);
-			if (MultiplayerMapPreview) {
-				MultiplayerMapPreview->Blit_Preview(window);
-			}
-			ValidateRect(window, NULL);
-			break;
-
-		case WM_ERASEBKGND:
-			return(TRUE);
-
-		case WM_DRAWITEM:
-			OwnerDraw::Draw_Item((DRAWITEMSTRUCT *)lparam);
-			return(TRUE);
-
-		case WM_COMMAND:
-			switch (LOWORD(wparam)) {
+		case LOBBY_MSG_COMMAND:
+			switch (Lobby_Low_Word(wparam)) {
 				case IDC_AILEVEL_SLIDER:
-					return(FALSE);
+					return(false);
 
-				case IDOK: {
-					int index = SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, LB_GETCURSEL, 0, 0);
+				case DIALOG_OK: {
+					int index = Map_List_Send(window, LOBBY_MSG_LIST_GET_CUR_SEL, 0, 0);
 					Session.Options.ScenarioIndex = std::max(0, index);
-					WS_Destroy_Dialog(window, IDOK);
-					SendDlgItemMessage(GameoptWindow(), IDC_SCENARIONAME, WM_SETTEXT, 0, (LPARAM)Session.Scenarios[Session.Options.ScenarioIndex]);
+					WS_Destroy_Dialog(window, DIALOG_OK);
+					Lobby_Send(GameoptWindow(), IDC_SCENARIONAME, LOBBY_MSG_SET_TEXT, 0, (LobbyLParam)Session.Scenarios[Session.Options.ScenarioIndex]);
 					break;
 				}
 
-				case IDCANCEL:
-					WS_Destroy_Dialog(window, IDCANCEL);
+				case DIALOG_CANCEL:
+					WS_Destroy_Dialog(window, DIALOG_CANCEL);
 					break;
 
 				case IDC_CREATE_RANDOM_MAP: {
-					ShowWindow(window, SW_HIDE);
+					UI_Map_Select_Show(window, false);
 					int scenario = CreateRandomMap();
 					if (scenario != -1) {
-						SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, LB_RESETCONTENT, 0, 0);
+						Map_List_Send(window, LOBBY_MSG_LIST_RESET, 0, 0);
 						for (int i = 0; i < Session.Scenarios.Count(); i++) {
-							SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, LB_INSERTSTRING, -1, (LPARAM)Session.Scenarios[i]);
+							Map_List_Send(window, LOBBY_MSG_LIST_INSERT, -1, (LobbyLParam)Session.Scenarios[i]);
 						}
-						SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, LB_SETCURSEL, scenario, 0);
+						Map_List_Send(window, LOBBY_MSG_LIST_SET_CUR_SEL, scenario, 0);
 						Set_Scenario_Info_From_Index(scenario);
 						if (!MultiplayerMapPreview->Get_Preview_Surface()) {
 							Update_Network_Dialog_Preview(window);
@@ -1241,24 +1176,24 @@ INT_PTR CALLBACK Scenario_DlgProc(HWND window, UINT message, WPARAM wparam, LPAR
 						Session.Options.ScenarioIndex = OriginalScenario;
 						Set_Scenario_Info_From_Index(OriginalScenario);
 					}
-					ShowWindow(window, SW_SHOW);
+					UI_Map_Select_Show(window, true);
 					break;
 				}
 			}
 			break;
 
-		case OD_SUBCLASSED: {
-			SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, LB_RESETCONTENT, 0, 0);
+		case LOBBY_MSG_SUBCLASSED: {
+			Map_List_Send(window, LOBBY_MSG_LIST_RESET, 0, 0);
 			for (int i = 0; i < Session.Scenarios.Count(); i++) {
-				SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, LB_INSERTSTRING, -1, (LPARAM)Session.Scenarios[i]);
+				Map_List_Send(window, LOBBY_MSG_LIST_INSERT, -1, (LobbyLParam)Session.Scenarios[i]);
 			}
-			SendDlgItemMessage(window, IDC_AILEVEL_SLIDER, LB_SETCURSEL, Session.Options.ScenarioIndex, 0);
+			Map_List_Send(window, LOBBY_MSG_LIST_SET_CUR_SEL, Session.Options.ScenarioIndex, 0);
 			OriginalScenario = Session.Options.ScenarioIndex;
 			LastPreviewedScenario = -1;
 			break;
 		}
 	}
-	return(FALSE);
+	return(false);
 }
 
 
@@ -1301,7 +1236,7 @@ void PregameSetup(void)
 /// may not appear until that download arrives.
 /// </summary>
 /// <param name="win">The dialog window that displays the preview.</param>
-void Update_Network_Dialog_Preview(HWND win)
+void Update_Network_Dialog_Preview(WSScreenHandle win)
 {
 	delete MultiplayerMapPreview;
 	MultiplayerMapPreview = NULL;
@@ -1342,7 +1277,7 @@ void Update_Network_Dialog_Preview(HWND win)
 	MultiplayerMapPreview = new MapPreviewClass;
 	if (MultiplayerMapPreview != NULL) {
 		MultiplayerMapPreview->Read_INI_Preview(Session.ScenarioFileName);
-		InvalidateRect(win, NULL, FALSE);
+		Lobby_Invalidate(win);
 	}
 }
 
@@ -1404,7 +1339,7 @@ void Receive_Random_Map_Preview(void)
 	}
 	MultiplayerMapPreview = new MapPreviewClass;
 	MultiplayerMapPreview->Create_Preview_Surface(preview);
-	InvalidateRect(WS_Top_Window(), NULL, FALSE);
+	Lobby_Invalidate(WS_Top_Window());
 
 	DebugString("Cleaning up the temporary decompression buffers\n");
 	delete [] preview;
@@ -1625,7 +1560,7 @@ int CreateRandomMap(void)
 		result = Do_Random_Map_Dialog(MapGen_Call_Back);
 	}
 
-	if (result != IDOK) {
+	if (result != DIALOG_OK) {
 		return(0);
 	}
 

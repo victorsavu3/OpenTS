@@ -36,13 +36,11 @@
 
 class SoundControlsClass
 {
-	enum SoundControlsClassEnums {
-		VOLUME_LEVELS=10				/// Number of steps on the volume sliders.
-	};
-
 	public:
+		enum SoundControlsClassEnums {
+			VOLUME_LEVELS=10			/// Number of steps on the volume sliders.
+		};
+
 		SoundControlsClass(void) {}
 		void Dialog(void);
-
-		static INT_PTR CALLBACK Sound_Option_Dialog_Func(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
 };

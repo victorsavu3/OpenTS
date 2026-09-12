@@ -17,7 +17,7 @@ option(OPENTS_EXPERIMENTAL_CLANG_CL "Build with clang-cl using the MSVC ABI" OFF
 # this as well, so declare it here rather than inherit it from a vendored build.
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-
+# Visual Studio 2022 is the supported toolchain.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
    AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
     if(NOT OPENTS_EXPERIMENTAL_CLANG_CL)
@@ -25,6 +25,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
             "The unsupported clang-cl experiment must be configured with "
             "-DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/clang-cl-msvc.cmake.")
     endif()
+elseif(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # The native macOS target is in progress and unsupported; docs/BUILDING.md records
+    # its state.
+    set(OPENTS_MACOS ON)
 elseif(MSVC)
     if(MSVC_VERSION LESS 1930)
         message(FATAL_ERROR "OpenTS requires MSVC 19.30 or newer.")
@@ -40,12 +44,24 @@ else()
         "-DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/clang-cl-msvc.cmake.")
 endif()
 
+# CMAKE_CXX_COMPILER_ARCHITECTURE_ID is an MSVC answer; every other toolchain leaves it empty.
 string(TOLOWER "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" OPENTS_ARCH)
 if(NOT OPENTS_ARCH)
-    set(OPENTS_ARCH "unknown")
+    if(EMSCRIPTEN)
+        set(OPENTS_ARCH "wasm32")
+    elseif(CMAKE_OSX_ARCHITECTURES AND NOT CMAKE_OSX_ARCHITECTURES MATCHES ";")
+        string(TOLOWER "${CMAKE_OSX_ARCHITECTURES}" OPENTS_ARCH)
+    elseif(CMAKE_SYSTEM_PROCESSOR)
+        string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" OPENTS_ARCH)
+    else()
+        set(OPENTS_ARCH "unknown")
+    endif()
 endif()
 
-enable_language(RC)
+# Only the Windows toolchains have a resource compiler.
+if(NOT OPENTS_MACOS)
+    enable_language(RC)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -87,9 +103,38 @@ add_custom_target(OpenTSBuildStamp ALL
     VERBATIM
 )
 
+# The names a UI document may use for a string. Generated from the language header, which is
+# where the identifiers are declared, so no list of them is kept by hand. It follows that
+# header rather than HEAD, so it runs at configure time and again when the header changes.
+set(OPENTS_STRING_NAME_HEADER "${OPENTS_GENERATED_DIR}/opents_stringnames.h")
+set(OPENTS_LANGUAGE_HEADER "${CMAKE_SOURCE_DIR}/code/language/language.h")
+
+set(OPENTS_STRING_NAME_ARGS
+    "-DOPENTS_LANGUAGE_HEADER=${OPENTS_LANGUAGE_HEADER}"
+    "-DOPENTS_STRING_NAME_HEADER=${OPENTS_STRING_NAME_HEADER}"
+    -P "${CMAKE_SOURCE_DIR}/cmake/StringNames.cmake"
+)
+
+execute_process(COMMAND ${CMAKE_COMMAND} ${OPENTS_STRING_NAME_ARGS})
+
+add_custom_command(
+    OUTPUT "${OPENTS_STRING_NAME_HEADER}"
+    COMMAND ${CMAKE_COMMAND} ${OPENTS_STRING_NAME_ARGS}
+    DEPENDS "${OPENTS_LANGUAGE_HEADER}" "${CMAKE_SOURCE_DIR}/cmake/StringNames.cmake"
+    COMMENT "Collecting the string identifier names"
+    VERBATIM
+)
+
+add_custom_target(OpenTSStringNames DEPENDS "${OPENTS_STRING_NAME_HEADER}")
+
+# macOS builds with clang against POSIX rather than the Windows SDK.
+if(OPENTS_MACOS)
+    set(OPENTS_POSIX ON)
+endif()
+
 add_subdirectory(thirdparty)
 add_subdirectory(code)
-add_subdirectory(code/language)
 
 enable_testing()
+
 add_subdirectory(tests)

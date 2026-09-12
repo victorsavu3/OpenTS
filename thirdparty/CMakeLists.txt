@@ -15,8 +15,10 @@ set(BGFX_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BGFX_INSTALL OFF CACHE BOOL "" FORCE)
 set(BGFX_CONFIG_RENDERER_WEBGPU OFF CACHE BOOL "" FORCE)
 
-# The engine links the static CRT, so its dependencies must agree.
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+if(MSVC)
+    # The engine links the static CRT, so its dependencies must agree.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 add_subdirectory(bgfx.cmake)
 
@@ -102,6 +104,64 @@ target_include_directories(lzo
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/lzo/src"
 )
 
+
+#
+# ---------------------------------------------------------
+# FreeType (glyph rasterization for RmlUi)
+# ---------------------------------------------------------
+#
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/freetype/CMakeLists.txt")
+    message(FATAL_ERROR
+        "thirdparty/freetype is empty. Fetch the submodules with:\n"
+        "  git submodule update --init --recursive")
+endif()
+
+# Every dependency is linked into the executable, and RmlUi's own default is a shared
+# library, so the standard option is answered here for both submodules below.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+# FreeType reaches for compression and shaping libraries when it finds them on the host.
+# The engine rasterizes plain TrueType faces, so every optional dependency is refused
+# rather than left to whatever the build machine happens to have installed.
+set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+
+add_subdirectory(freetype)
+
+# RmlUi looks for the target that the CMake FindFreetype module defines, and FreeType's own
+# build does not define it. The alias supplies it from the submodule target.
+if(NOT TARGET Freetype::Freetype)
+    add_library(Freetype::Freetype ALIAS freetype)
+endif()
+
+#
+# ---------------------------------------------------------
+# RmlUi (document-based user interface)
+# ---------------------------------------------------------
+#
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/RmlUi/CMakeLists.txt")
+    message(FATAL_ERROR
+        "thirdparty/RmlUi is empty. Fetch the submodules with:\n"
+        "  git submodule update --init --recursive")
+endif()
+
+# The engine supplies its own render, system, and file interfaces, so none of RmlUi's
+# backends or samples are built. Its debugger plugin comes with the core library.
+set(RMLUI_SAMPLES OFF CACHE BOOL "" FORCE)
+set(RMLUI_LUA_BINDINGS OFF CACHE BOOL "" FORCE)
+set(RMLUI_LOTTIE_PLUGIN OFF CACHE BOOL "" FORCE)
+set(RMLUI_SVG_PLUGIN OFF CACHE BOOL "" FORCE)
+set(RMLUI_HARFBUZZ_SAMPLE OFF CACHE BOOL "" FORCE)
+set(RMLUI_FONT_ENGINE "freetype" CACHE STRING "" FORCE)
+
+# RmlUi's dependency check is satisfied by the alias above, so the host is never probed.
+# A system FreeType would otherwise be preferred over the pinned submodule.
+set(CMAKE_DISABLE_FIND_PACKAGE_Freetype ON)
+
+add_subdirectory(RmlUi)
 
 #
 # ---------------------------------------------------------

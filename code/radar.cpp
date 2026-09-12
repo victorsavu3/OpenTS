@@ -64,6 +64,7 @@
  *   RadarClass::Zoom_Mode(void) -- Handles toggling zoom on the map                           *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#include "utf8.h"
 #include "always.h"
 
 #include "radar.h"
@@ -94,6 +95,7 @@
 #include "init.h"
 #include "language/language.h"
 #include "lightcon.h"
+#include "mainwindow.h"
 #include "mixfile.h"
 #include "movies.h"
 #include "revent.h"
@@ -541,7 +543,7 @@ int RadarClass::RTacticalClass::Action(unsigned flags, KeyNumType & key)
 	if (cell != CELL_NONE) {
 		Coord coord = cell.As_Coord();
 		coord.Z = Map.Get_Height_GL(coord);
-		shadow	= (Map.Is_Shrouded(coord) && MainWindow);
+		shadow	= (Map.Is_Shrouded(coord) && Has_Main_Window());
 
 		/*
 		**	If there is a currently selected object, then the action to perform if
@@ -790,10 +792,10 @@ void RadarClass::Draw_Names(void)
 		**	Initialize our message
 		*/
 		txt[0] = 0;
-		sprintf(txt, "%s", (char const *)ptr->IniName);
+		snprintf(txt, sizeof(txt), "%s", (char const *)ptr->IniName);
 
 		if (strlen(txt) == 0) {
-			strcpy(txt,"________");
+			UTF8::Copy(txt, "________");
 		}
 
 		/*
@@ -810,7 +812,7 @@ void RadarClass::Draw_Names(void)
 			kills += ptr->UnitsKilled[h];
 			kills += ptr->BuildingsKilled[h];
 		}
-		sprintf(txt, "%2d", kills);
+		snprintf(txt, sizeof(txt), "%2d", kills);
 		Fancy_Text_Print(txt, *SidebarSurface, SidebarSurface->Get_Rect(), Point2D(RadX + RadOffX + RadIWidth - 2, y), color, TBLACK, TextPrintType(style | TPF_RIGHT));
 
 		y += 8+1;
@@ -1571,7 +1573,7 @@ void RadarClass::Plot_Radar_Pixel(Point2D const & point)
 
 		Coord coord = Radar_Pixel_To_Cell(point);
 		coord.Z = Map.Get_Height_GL(coord);
-		bool shadow	= (MainWindow && Map.Is_Shrouded(coord));
+		bool shadow	= (Has_Main_Window() && Map.Is_Shrouded(coord));
 
 		TechnoClass *tech = RadarTracking.First(point);
 
@@ -2304,7 +2306,7 @@ void RadarClass::Play_Movie(void)
 /// </summary>
 void RadarClass::Complete_Radar_Refresh(void)
 {
-	if (MainWindow == NULL) {
+	if (!Has_Main_Window()) {
 		RadarSurface->Blit_From(RadarSurface->Get_Rect(), *BackgroundSurface, BackgroundSurface->Get_Rect());
 		Render_Tracked_Objects();
 	} else {

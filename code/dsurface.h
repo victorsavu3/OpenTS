@@ -45,9 +45,7 @@ enum DSurfaceColorMode {
 };
 
 
-// A concrete surface whose pixels are a GDI device independent bitmap in system memory.
-// The bitmap is permanently selected into a memory device context, so the surface can be
-// drawn to either as raw 16 bit pixels through Lock or with GDI through GetDC.
+// A concrete 565 surface whose pixels live in system memory, drawn to through Lock.
 class DSurface : public XSurface
 {
 		typedef XSurface BASECLASS;
@@ -61,12 +59,6 @@ class DSurface : public XSurface
 		DSurface(int width, int height);
 
 		/*
-		**	Get/Release a windows device context for the surface pixels.
-		*/
-		HDC GetDC(void);
-		int ReleaseDC(HDC hdc);
-
-		/*
 		**	Create a surface object that represents the currently visible screen.
 		*/
 		static DSurface * Create_Primary(void);
@@ -74,9 +66,11 @@ class DSurface : public XSurface
 		/*
 		**	Copies regions from one surface to another.
 		*/
-		virtual bool Blit_From(Rect const & dcliprect, Rect const & destrect, Surface const & source, Rect const & scliprect, Rect const & sourcerect, bool trans=false, bool unknown=true) override;
-		virtual bool Blit_From(Rect const & destrect, Surface const & source, Rect const & sourcerect, bool trans=false, bool unknown=true) override;
+		virtual bool Blit_From(Rect const & dcliprect, Rect const & destrect, Surface const & source, Rect const & scliprect, Rect const & sourcerect, bool trans=false, bool unknown=true, SurfaceFilterType filter=SURFACE_FILTER_POINT) override;
+		virtual bool Blit_From(Rect const & destrect, Surface const & source, Rect const & sourcerect, bool trans=false, bool unknown=true, SurfaceFilterType filter=SURFACE_FILTER_POINT) override;
 		virtual bool Blit_From(Surface const & source, bool trans=false, bool unknown=true) override {return(BASECLASS::Blit_From(source, trans, unknown));}
+
+		virtual bool Blit_Scaled_Region(Rect const & destrect, Surface const & source, Rect const & sourcerect, Rect const & region, SurfaceFilterType filter=SURFACE_FILTER_POINT) override;
 
 		/*
 		**	Fills a region with a constant color.
@@ -104,7 +98,7 @@ class DSurface : public XSurface
 		 * The pixels, reachable without the lock bookkeeping. The presenter reads the
 		 * frame this way, since a locked surface refuses to be blitted from.
 		 */
-		void * Get_Buffer(void) const {return(GDIBuffer);}
+		void * Get_Buffer(void) const {return(Buffer);}
 
 		/*
 		**	Queries information about the surface.
@@ -112,19 +106,7 @@ class DSurface : public XSurface
 		virtual int Bytes_Per_Pixel(void) const override;
 		virtual int Stride(void) const override;
 
-		/*
-		 * This surface owns a device context, so GetDC yields one that draws on these
-		 * same pixels.
-		 */
-		virtual bool Is_GDI_Backed(void) const override {return(true);}
-
 		virtual bool Can_Blit(void) const;
-
-		/*
-		 * The movie player scales to the full screen only when this is true. Surfaces
-		 * stretch in software now, so it always is.
-		 */
-		static bool AllowStretchBlits;
 
 		/*
 		 * The bit layout that the primary surface packs its color guns into. The
@@ -158,26 +140,15 @@ class DSurface : public XSurface
 		mutable int BytesPerPixel;
 
 		/*
-		**	If this surface object represents the one that is visible and associated
-		**	with the system GDI, then this flag will be true.
+		**	If this surface object represents the one that is visible, then this flag
+		**	will be true.
 		*/
 		bool IsPrimary;
 
 		/*
-		 * The bitmap holding the pixels, the context it is selected into, and the object
-		 * that context held beforehand. GDI will not free a bitmap that is still
-		 * selected, so the original has to go back before this one can be destroyed.
+		 * The pixels themselves, and the bytes from one row of them to the next.
 		 */
-		HBITMAP GDIBitmap;
-		mutable HDC GDIDC;
-		HGDIOBJ GDIOldBitmap;
-
-		/*
-		 * The pixels themselves, owned by the bitmap, and the bytes from one row of them
-		 * to the next. GDI rounds that up to a multiple of four, so it is not always the
-		 * width times the pixel size.
-		 */
-		void * GDIBuffer;
+		void * Buffer;
 		int Pitch;
 
 	public:

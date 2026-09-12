@@ -10,5 +10,10 @@ opents_add_test(SaveTest
         crc.cpp
         savefile.cpp
     DEFINITIONS WIN32 _WINDOWS _MBCS NOMINMAX
-    LIBRARIES lzo
+    LIBRARIES lzo OpenTSPlatform
 )
+
+if(OPENTS_POSIX)
+    target_compile_options(SaveTest PRIVATE -fexceptions)
+    target_link_options(SaveTest PRIVATE -fexceptions)
+endif()

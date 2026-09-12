@@ -25,6 +25,7 @@
 #include "_tactica.h"
 #include "_timer.h"
 #include "_xmouse.h"
+#include "ui/uishell.h"
 #include "bench.h"
 #include "chat.h"
 #include "command.h"
@@ -47,6 +48,7 @@
 #include "mstimer.h"
 #include "netdlg.h"
 #include "pcx.h"
+#include "platform/wait.h"
 #include "queue.h"
 #include "rules.h"
 #include "savemgr.h"
@@ -138,7 +140,7 @@ void Motion_Capture(void)
 
 			for (int index = 0; index < _sequence; index++) {
 				char filename[30];
-				sprintf(filename, "cap%04d.pcx", index);
+				snprintf(filename, sizeof(filename), "cap%04d.pcx", index);
 				CCFileClass file(filename);
 				temp_page.Blit_From(*_array[index], false, true);
 				Write_PCX_File(file, temp_page, & GamePalette);
@@ -160,10 +162,10 @@ static void Check_For_Focus_Loss(void)
 {
 	while (!GameInFocus) {
 		if (Session.Type == GAME_NORMAL || Session.Type == GAME_SKIRMISH) {
-			Sleep(500);
+			Platform_Sleep(500);
 			Windows_Message_Handler();
 		} else {
-			Sleep(10);
+			Platform_Sleep(10);
 			Windows_Message_Handler();
 			break;
 		}
@@ -208,10 +210,10 @@ bool Main_Loop(void)
 	#else
 	while (!GameInFocus) {
 		if (Session.Type == GAME_NORMAL || Session.Type == GAME_SKIRMISH) {
-			Sleep(500);
+			Platform_Sleep(500);
 			Windows_Message_Handler();
 		} else {
-			Sleep(10);
+			Platform_Sleep(10);
 			Windows_Message_Handler();
 			break;
 		}
@@ -228,7 +230,7 @@ bool Main_Loop(void)
 	//
 	// Initialize our AI processing timer
 	//
-	Session.ProcessTimer = timeGetTime();/// TickCount;
+	Session.ProcessTimer = System_Milliseconds();/// TickCount;
 
 	if (Session.TrapCheckHeap) {
 		Debug_Trap_Check_Heap = true;
@@ -278,6 +280,9 @@ bool Main_Loop(void)
 	*/
 	if (!Session.Play) {
 		if (SpecialDialog == SDLG_NONE && GameInFocus) {
+			// Documents that are not driven by a modal runner advance here, beside the
+			// input the rest of the screen is polled with.
+			UI_Tick();
 			Map.Input(input, x, y);
 			if (input) {
 				Keyboard_Process(input);
@@ -322,7 +327,7 @@ bool Main_Loop(void)
 	//
 	// Measure how long it took to process the AI
 	//
-	Session.ProcessTicks += std::min<int>(1000, (timeGetTime() - Session.ProcessTimer)); // (TickCount - Session.ProcessTimer)
+	Session.ProcessTicks += std::min<int>(1000, (System_Milliseconds() - Session.ProcessTimer)); // (TickCount - Session.ProcessTimer)
 	Session.ProcessFrames++;
 
 	/*
@@ -573,13 +578,13 @@ void Sync_Delay(void)
 					TacticalMap->AI();
 					Map.Render();
 				} else {
-					Sleep(0);
+					Platform_Sleep(0);
 				}
 				if (!NetFrameTimer()) {
 					break;
 				}
 			}
-			Sleep(0);
+			Platform_Sleep(0);
 		}
 	} else {
 		while (FrameTimer) {
@@ -596,9 +601,9 @@ void Sync_Delay(void)
 				}
 			}
 			if (GameInFocus || (Session.Type != GAME_NORMAL && Session.Type != GAME_SKIRMISH)) {
-				Sleep(0);
+				Platform_Sleep(0);
 			} else {
-				Sleep(16 * FrameTimer);
+				Platform_Sleep(16 * FrameTimer);
 			}
 		}
 	}
@@ -729,22 +734,22 @@ void Multiplayer_Debug_Print(void)
 
 	char buffer[256];
 
-	sprintf(buffer, "Frame : %d", Frame);
+	snprintf(buffer, sizeof(buffer), "Frame : %d", Frame);
 	Fancy_Text_Print(buffer, *LogicalSurface, LogicalSurface->Get_Rect(), Point2D(0, top + 2), Fetch_Scheme_By_Name("Grey"), 0, (TextPrintType)(TPF_EFNT | TPF_NOSHADOW));
 
-	sprintf(buffer, "FPS : %d", LastFramesPerSecond);
+	snprintf(buffer, sizeof(buffer), "FPS : %d", LastFramesPerSecond);
 	Fancy_Text_Print(buffer, *LogicalSurface, LogicalSurface->Get_Rect(), Point2D(0, top + 10), Fetch_Scheme_By_Name("Grey"), 0, (TextPrintType)(TPF_EFNT | TPF_NOSHADOW));
 
-	sprintf(buffer, "MaxAhead : %d", Session.MaxAhead);
+	snprintf(buffer, sizeof(buffer), "MaxAhead : %d", Session.MaxAhead);
 	Fancy_Text_Print(buffer, *LogicalSurface, LogicalSurface->Get_Rect(), Point2D(0, top + 18), Fetch_Scheme_By_Name("Grey"), 0, (TextPrintType)(TPF_EFNT | TPF_NOSHADOW));
 
-	sprintf(buffer, "Resp Time : %d ms", (int)(Ipx.Response_Time() * 1000) / TIMER_SECOND);
+	snprintf(buffer, sizeof(buffer), "Resp Time : %d ms", (int)(Ipx.Response_Time() * 1000) / TIMER_SECOND);
 	Fancy_Text_Print(buffer, *LogicalSurface, LogicalSurface->Get_Rect(), Point2D(0, top + 26), Fetch_Scheme_By_Name("Grey"), 0, (TextPrintType)(TPF_EFNT | TPF_NOSHADOW));
 
-	sprintf(buffer, "Req fps : %d", Session.DesiredFrameRate);
+	snprintf(buffer, sizeof(buffer), "Req fps : %d", Session.DesiredFrameRate);
 	Fancy_Text_Print(buffer, *LogicalSurface, LogicalSurface->Get_Rect(), Point2D(0, top + 34), Fetch_Scheme_By_Name("Grey"), 0, (TextPrintType)(TPF_EFNT | TPF_NOSHADOW));
 
-	sprintf(buffer, "Process : %d", Session.Players[0]->Player.ProcessTime);
+	snprintf(buffer, sizeof(buffer), "Process : %d", Session.Players[0]->Player.ProcessTime);
 	Fancy_Text_Print(buffer, *LogicalSurface, LogicalSurface->Get_Rect(), Point2D(0, top + 42), Fetch_Scheme_By_Name("Grey"), 0, (TextPrintType)(TPF_EFNT | TPF_NOSHADOW));
 
 	Ipx.Multiplayer_Debug_Print(top);

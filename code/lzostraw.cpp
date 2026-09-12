@@ -36,10 +36,10 @@
 
 #include "lzostraw.h"
 
-#include <lzo/lzo1x.h>
 
 #include <cassert>
 #include <cstring>
+#include <lzo/lzo1x.h>
 
 
 /***********************************************************************************************

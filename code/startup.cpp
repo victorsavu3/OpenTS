@@ -77,6 +77,7 @@
 #include "fog.h"
 #include "gamedirs.h"
 #include "goptions.h"
+#include "hostwindow.h"
 #include "house.h"
 #include "houstype.h"
 #include "hover.h"
@@ -102,6 +103,7 @@
 #include "ovrlight.h"
 #include "particle.h"
 #include "partsys.h"
+#include "platform/process.h"
 #include "psystype.h"
 #include "ptype.h"
 #include "rules.h"
@@ -143,6 +145,7 @@
 #include "vanim.h"
 #include "vanimtype.h"
 #include "vector.h"
+#include "ui/uishell.h"
 #include "video.h"
 #include "walk.h"
 #include "warhead.h"
@@ -155,24 +158,17 @@
 #include "wwmouse.h"
 #include "zbuffer.h"
 
-#include <lzo/lzoconf.h>
 
-#include <shellapi.h>
-
-#include <conio.h>
-#include <io.h>
 #include <cfloat>
+#include <filesystem>
+#include <lzo/lzo1x.h>
 #include <string>
+#include <system_error>
 #include <vector>
 
-extern	HINSTANCE LanguageResources;
-
-#define APP_GUID "29e3bb2a-2f36-11d3-a72c-0090272fa661"
-#define AUTOPLAY_GUID "b350c6d2-2f36-11d3-a72c-0090272fa661"
-
-
-HANDLE AppMutex;
-HANDLE AutoPlayMutex;
+#if defined(_WIN32)
+#include <shellapi.h>
+#endif
 
 //WinTimerClass * WinTimer;
 
@@ -213,6 +209,7 @@ void Reset_Surfaces(void)
 			VisibleSurface = NULL;
 		}
 
+		UI_Shutdown();
 		Video_Shutdown();
 
 		surfaces_reset = true;
@@ -296,50 +293,6 @@ static void RegisterClasses(void)
 	REGISTER_CLASS(AlphaShapeClass, ClassID_AlphaShapeClass);
 }
 
-/// <summary>
-/// Builds the argument list the game parses from the command line the shell handed over.
-/// The shell's own quoting decides where one argument ends and the next begins, so a
-/// directory whose name holds spaces arrives as the single argument it was written as.
-/// </summary>
-/// <param name="path_to_exe">Full path to the running executable, which becomes the first
-/// argument the way a DOS program received it.</param>
-/// <param name="argv">Receives the argument array, which lasts as long as the process.</param>
-/// <returns>The number of arguments, which is never less than one.</returns>
-static int Build_Arguments(char const * path_to_exe, char ** & argv)
-{
-	static std::vector<std::string> arguments;
-	static std::vector<char *> pointers;
-
-	arguments.clear();
-	pointers.clear();
-	arguments.push_back(path_to_exe);
-
-	int wide_count = 0;
-	LPWSTR * wide_argv = CommandLineToArgvW(GetCommandLineW(), &wide_count);
-
-	if (wide_argv != NULL) {
-		// Index zero names the executable, which the caller has already established.
-		for (int index = 1; index < wide_count; index++) {
-			int length = WideCharToMultiByte(CP_ACP, 0, wide_argv[index], -1, NULL, 0, NULL, NULL);
-			if (length <= 1) continue;
-
-			std::string argument(length - 1, '\0');
-			WideCharToMultiByte(CP_ACP, 0, wide_argv[index], -1, argument.data(), length, NULL, NULL);
-			arguments.push_back(argument);
-		}
-
-		LocalFree(wide_argv);
-	}
-
-	for (std::string & argument : arguments) {
-		pointers.push_back(argument.data());
-	}
-
-	argv = pointers.data();
-	return((int)pointers.size());
-}
-
-
 /***********************************************************************************************
  * main -- Initial startup routine (preps library systems).                                    *
  *                                                                                             *
@@ -357,19 +310,13 @@ static int Build_Arguments(char const * path_to_exe, char ** & argv)
  * HISTORY:                                                                                    *
  *   03/20/1995 JLB : Created.                                                                 *
  *=============================================================================================*/
-int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_show )
+int main(int argc, char * argv[])
 {
-	int		argc;       //Command line argument count
-	char **	argv;       //Pointers to command line arguments
-	char	path_to_exe[MAX_PATH];
 	char	buffer[512];
 
-	// First, so that everything after it is covered, including the rest of this function.
-	Install_Exception_Handler();
+	Debug_Init(argc, argv);
 
-	ProgramInstance = instance;
-
-	Debug_Init();
+	Raise_Timer_Resolution();
 
 	// Handed over now because the exception path may not ask the logger for anything: the
 	// thread that crashed may be the one holding the logger's lock.
@@ -381,109 +328,23 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 	int const lzo_status = lzo_init();
 	if (lzo_status != LZO_E_OK) {
 		DebugString("lzo_init failed with %d.\n", lzo_status);
-		MessageBox(NULL, "The compression library failed its startup check. This build is faulty.", "OpenTS", MB_OK | MB_ICONERROR);
+		Host_Message_Box("OpenTS", "The compression library failed its startup check. This build is faulty.", HOST_BOX_OK | HOST_BOX_ERROR);
 		return(EXIT_FAILURE);
 	}
 
-	/*
-	 * Create a mutex with a unique name to TibSun in order to determine if
-	 * our app is already running.
-	 *
-	 * WARNING: DO NOT use this number for any other application except TibSun
-	 */
-	AppMutex = ::CreateMutex (NULL, FALSE, APP_GUID);
-
-	//
-	// Is there already an instance of this app somewhere?
-	//
-	if (::GetLastError () == ERROR_ALREADY_EXISTS) {
-		//
-		// Find the previous instance
-		//
-		HWND main_wnd = ::FindWindow (APP_GUID, NULL);
-		if (main_wnd != NULL) {
-			::SetForegroundWindow (main_wnd);
-			::ShowWindow (main_wnd, SW_RESTORE);
-		}
-		if (AppMutex != NULL) {
-			CloseHandle(AppMutex);
-			AppMutex = NULL;
-		}
-		DebugString("TibSun is already running...Bail!\n");
+	if (!Acquire_Single_Instance()) {
 		return(EXIT_SUCCESS);
-	} else {
-
-		DebugString("Create AppMutex okay.\n");
-
-		//
-		// Obtain the mutex unique to the Renegade AutoPlay application.
-		//
-		// WARNING: DO NOT use this number for any other application except Renegade AutoPlay
-		//
-		do
-		{
-			//
-			// Attempt to open the mutex
-			//
-			AutoPlayMutex = ::OpenMutex (MUTEX_ALL_ACCESS, FALSE, AUTOPLAY_GUID);
-			if (AutoPlayMutex != NULL) {
-				DebugString( "Waiting for Autoplay to quit!\n");
-				if (::WaitForSingleObject (AutoPlayMutex, 30000) == WAIT_FAILED) {
-					DebugString ("Failed waiting for AutoPlayMutex\n");
-					::CloseHandle (AutoPlayMutex);
-					AutoPlayMutex = NULL;
-				}
-			}
-
-			/*
-			 * Create a mutex with a name unique to the TibSun AutoPlay application.
-			 * This prevents the autoplay from running since it cannot get the mutex.
-			 * TibSun needs both of these mutexs before it is allowed to run.
-			 */
-			if (AutoPlayMutex == NULL) {
-				AutoPlayMutex = CreateMutex (NULL, FALSE, AUTOPLAY_GUID);
-				if (GetLastError () == ERROR_ALREADY_EXISTS) {
-					CloseHandle (AutoPlayMutex);
-					AutoPlayMutex = NULL;
-					Sleep (2500);
-				} else {
-					DebugString("Create AutoPlayMutex.\n");
-				}
-			}
-		} while (AutoPlayMutex == NULL);
-
-		DebugString ("Got AutoPlayMutex okay.\n");
 	}
 
 	atexit(Prog_End);
 
-	if (!Init_Language_Resources(true)) {
-		return(EXIT_SUCCESS);
-	}
-
 	RegisterClasses();
 
 	/*
-	**	Get the full path to the .EXE
+	**	Change directory to the where the executable is located.
 	*/
-	GetModuleFileName (instance, &path_to_exe[0], sizeof(path_to_exe));
-
-	/*
-	**	Get pointers to command line arguments just like if we were in DOS
-	**
-	*/
-	argc = Build_Arguments(path_to_exe, argv);
-
-	/*
-	**	Change directory to the where the executable is located. Handle the
-	**	case where there is no path attached to argv[0].
-	*/
-	char drive[_MAX_DRIVE];
-	char path[_MAX_PATH];
-	char dir[_MAX_DIR];
-	_splitpath(argv[0], drive, dir, NULL, NULL);
-	_makepath(path, drive, dir, NULL, NULL);
-	SetCurrentDirectory(path);
+	std::error_code directory_error;
+	std::filesystem::current_path(std::filesystem::path(Executable_Directory()), directory_error);
 
 	int error_code = EXIT_FAILURE;
 
@@ -498,6 +359,11 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 		 */
 		DeploymentConfig.Read_File(Data_Directory().c_str());
 		Init_Search_Folders(DeploymentConfig.SearchPaths.c_str());
+
+		// The shipped UI documents, styles, and fonts. Registered after the deployment's own
+		// folders so that one of them can override a shipped file.
+		Init_Search_Folders("ui");
+		Init_Executable_Folder("ui");
 
 		// The recording's name was settled during static initialization, before there was
 		// anywhere for a player's files to go. Naming it again settles it where it belongs.
@@ -533,8 +399,7 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 		*/
 		if (Disk_Space_Available() < INIT_FREE_DISK_SPACE) {
 			snprintf(buffer, sizeof(buffer), Fetch_String(TXT_CRITICALLY_LOW), (INIT_FREE_DISK_SPACE) / (1024 * 1024));
-			int reply = MessageBox(NULL, buffer, Fetch_String(TXT_SHORT_TITLE), MB_ICONQUESTION|MB_YESNO);
-			if (reply == IDNO) {
+			if (Host_Message_Box(Fetch_String(TXT_SHORT_TITLE), buffer, HOST_BOX_QUESTION | HOST_BOX_YES_NO) == HOST_ANSWER_NO) {
 				return(EXIT_FAILURE);
 			}
 		}
@@ -548,7 +413,7 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 		VideoModeWidth = Options.ScreenWidth;
 		VideoModeHeight = Options.ScreenHeight;
 
-		Create_Main_Window(instance, command_show, Options.ScreenWidth, Options.ScreenHeight);
+		Host_Create_Window(Options.ScreenWidth, Options.ScreenHeight);
 
 		Exception_Run_Post_Window_Test();
 
@@ -556,26 +421,35 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 
 		int drawablewidth = 0;
 		int drawableheight = 0;
-		int refreshrate = Win_Window_Refresh_Rate(MainWindow);
-		NativeWindow nativewindow = Win_Native_Window(MainWindow);
-		if (!Win_Window_Drawable_Size(MainWindow, drawablewidth, drawableheight)
+		int refreshrate = Host_Window_Refresh_Rate();
+		NativeWindow nativewindow = Host_Native_Window();
+		if (!Host_Window_Drawable_Size(drawablewidth, drawableheight)
 			|| !Video_Init(nativewindow, drawablewidth, drawableheight, refreshrate)) {
-			MessageBox(MainWindow, Fetch_String(TXT_VIDEO_ERROR), Fetch_String(TXT_SHORT_TITLE), MB_ICONWARNING);
+			Host_Message_Box(Fetch_String(TXT_SHORT_TITLE), Fetch_String(TXT_VIDEO_ERROR), HOST_BOX_OK | HOST_BOX_WARNING);
 			exit(EXIT_FAILURE);
 		}
 
 		VisibleSurface = DSurface::Create_Primary();
 		if (VisibleSurface == NULL) {
-			MessageBox(MainWindow, Fetch_String(TXT_VIDEO_ERROR), Fetch_String(TXT_SHORT_TITLE), MB_ICONWARNING);
+			Host_Message_Box(Fetch_String(TXT_SHORT_TITLE), Fetch_String(TXT_VIDEO_ERROR), HOST_BOX_OK | HOST_BOX_WARNING);
 			exit(EXIT_FAILURE);
 		}
 
+		// Only the Windows host reports focus.
+#if defined(_WIN32)
 		do {
 			Windows_Message_Handler();
 		}
 		while (!GameInFocus);
+#endif
 
 		VisibleSurface->Fill(0);
+
+		// The shell needs the frame's destination, which Video_Init settled, and the game
+		// runs without it if it cannot start: a screen that has no RmlUi view is unaffected.
+		if (!UI_Init()) {
+			DebugString("UI: the shell is unavailable; only the legacy screens will open\n");
+		}
 
 		Rect sidebar_rect(0,0,SidebarClass::SIDE_WIDTH,VisibleRect.Height);
 		Rect tile_rect(0,0,VisibleRect.Width-sidebar_rect.Width, sidebar_rect.Height);
@@ -590,7 +464,7 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 
 		AlphaBuffer = new ABuffer(Rect(TacticalRect.X, TacticalRect.Y, 480, 480 - TacticalRect.Y));
 
-		MouseCursor = new WWMouseClass(MainWindow);
+		MouseCursor = new WWMouseClass();
 		MouseCursor->Capture_Mouse();
 
 		/*
@@ -630,18 +504,7 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 
 		AudioEngine.End();
 
-		/*
-		**	Post a message to our message handler to tell it to clean up.
-		*/
-		PostMessage(MainWindow, WM_DESTROY, 0, 0);
-
-		/*
-		**	Wait until the message handler has dealt with the message
-		*/
-		do
-		{
-			Windows_Message_Handler();
-		}while (ReadyToQuit == 1);
+		Host_Close_Window();
 
 		error_code = EXIT_SUCCESS;
 
@@ -652,7 +515,7 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 		 * either, so a directory the game cannot use is reported where it will be seen.
 		 */
 		if (*Game_Directory_Error() != '\0') {
-			MessageBox(NULL, Game_Directory_Error(), Fetch_String(TXT_SHORT_TITLE), MB_ICONEXCLAMATION|MB_OK);
+			Host_Message_Box(Fetch_String(TXT_SHORT_TITLE), Game_Directory_Error(), HOST_BOX_OK | HOST_BOX_WARNING);
 		}
 
 		// The help and the invalid option message are of no use if the console closes with
@@ -663,6 +526,57 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 
 	return(error_code);
 }
+
+
+#if defined(_WIN32)
+
+/// <summary>
+/// The Windows entry point. Builds the argument list main receives from the command line the
+/// shell handed over, following the shell's own quoting, so a directory whose name holds spaces
+/// arrives as the single argument it was written as. The first argument is the executable's
+/// full path, whatever the shell was given.
+/// </summary>
+int WINAPI WinMain(HINSTANCE instance, HINSTANCE, char *, int command_show)
+{
+	// First, so that everything after it is covered, including the rest of startup.
+	Install_Exception_Handler();
+
+	ProgramInstance = instance;
+	ShowCommand = command_show;
+
+	// The list lasts as long as the process, as a C runtime's argv does.
+	static std::vector<std::string> arguments;
+	static std::vector<char *> pointers;
+
+	arguments.push_back(Executable_Path());
+
+	int wide_count = 0;
+	LPWSTR * const wide_argv = CommandLineToArgvW(GetCommandLineW(), &wide_count);
+
+	if (wide_argv != nullptr) {
+		// Index zero names the executable, which is already in place. The arguments name paths
+		// the narrow file API opens, so they take its code page, which the manifest makes UTF-8.
+		for (int index = 1; index < wide_count; index++) {
+			int const length = WideCharToMultiByte(CP_ACP, 0, wide_argv[index], -1, nullptr, 0, nullptr, nullptr);
+			if (length <= 1) continue;
+
+			std::string argument(length - 1, '\0');
+			WideCharToMultiByte(CP_ACP, 0, wide_argv[index], -1, argument.data(), length, nullptr, nullptr);
+			arguments.push_back(argument);
+		}
+
+		LocalFree(wide_argv);
+	}
+
+	for (std::string & argument : arguments) {
+		pointers.push_back(argument.data());
+	}
+	pointers.push_back(nullptr);
+
+	return(main(int(arguments.size()), pointers.data()));
+}
+
+#endif	// _WIN32
 
 /***********************************************************************************************
  * Prog_End -- Cleans up library systems in prep for game exit.                                *
@@ -682,6 +596,8 @@ int CALLBACK WinMain ( HINSTANCE instance , HINSTANCE , char * , int command_sho
 void __cdecl Prog_End(void)
 {
 	int i;
+
+	Restore_Timer_Resolution();
 
 	GameActive = false;
 
@@ -982,18 +898,7 @@ void __cdecl Prog_End(void)
 
 	Unregister_Classes();
 
-	if (LanguageResources) {
-		FreeLibrary(LanguageResources);
-	}
-
-	if (AutoPlayMutex != NULL) {
-		CloseHandle(AutoPlayMutex);
-		AutoPlayMutex = NULL;
-	}
-	if (AppMutex != NULL) {
-		CloseHandle(AppMutex);
-		AppMutex = NULL;
-	}
+	Release_Single_Instance();
 }
 
 /***********************************************************************************************
@@ -1016,17 +921,7 @@ void Emergency_Exit(void)
 
 	ReadyToQuit = 1;
 
-	/*
-	**	Post a message to our message handler to tell it to clean up.
-	*/
-	PostMessage(MainWindow, WM_DESTROY, 0, 0);
-
-	while (MainWindow) {
-		Windows_Message_Handler();
-		if (ReadyToQuit != 1) {
-			break;
-		}
-	}
+	Host_Close_Window();
 
 
 	if (MouseCursor) {
@@ -1035,7 +930,9 @@ void Emergency_Exit(void)
 	}
 	MouseCursor = NULL;
 
+#if defined(_WIN32)
 	PostQuitMessage(EXIT_SUCCESS);
+#endif
 
 	Shutdown_Network();
 

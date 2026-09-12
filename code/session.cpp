@@ -44,6 +44,9 @@
  *   SessionClass::Compute_Unique_ID -- computes unique local ID number                        *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#include "utf8.h"
+#include "netsocket.h"
+#include "mstimer.h"
 #include "always.h"
 
 #include "session.h"
@@ -64,6 +67,7 @@
 #include "language/language.h"
 #include "msgloop.h"
 #include "netglobal.h"
+#include "platform/wait.h"
 #include "progress.h"
 #include "queue.h"
 #include "rules.h"
@@ -77,8 +81,6 @@
 
 #include <algorithm>
 #include <ctime> // for station ID computation
-#include <dos.h> // for station ID computation
-#include <winsock.h> // for ntohl
 
 
 /***************************** Globals *************************************/
@@ -384,7 +386,7 @@ int SessionClass::Create_Connections(void)
 
 			Houses[Players[i]->Player.ID]->SquadID = Players[i]->Player.SquadID;
 
-			unsigned int ip = ntohl(Session.Players[i]->Address.Get_IP());
+			unsigned int ip = Socket_Host_Long(Session.Players[i]->Address.Get_IP());
 
 			DebugString("House[%d] IP = %X  Clan=%d\n",Players[i]->Player.ID, ip, Players[i]->Player.SquadID);
 
@@ -920,7 +922,7 @@ void SessionClass::Read_Scenario_Descriptions(void)
 	*/
 	for (AddonType addon = ADDON_COUNT; addon > ADDON_BASE_GAME; --addon) {
 		if (Addon_Enabled(addon) == true) {
-			sprintf(name_buffer, "MULTI%02d.PKT", addon);
+			snprintf(name_buffer, sizeof(name_buffer), "MULTI%02d.PKT", addon);
 			file.Close();
 			file.Set_Name(name_buffer);
 			if (CCFileClass(name_buffer).Is_Available()) {
@@ -1215,7 +1217,7 @@ unsigned int SessionClass::Compute_Unique_ID(void)
 	//------------------------------------------------------------------------
 //	time(&tm);
 //	id = (unsigned long)tm;
-	id = timeGetTime();
+	id = System_Milliseconds();
 
 	//------------------------------------------------------------------------
 	// Now add in the free space on the hard drive
@@ -1438,7 +1440,7 @@ void SessionClass::Update_Progress(int percent)
 				Call_Back();
 
 				while (Ipx.Global_Num_Send() > 5 && timer > 0) {
-					Sleep(20);
+					Platform_Sleep(20);
 					Windows_Message_Handler();
 					Call_Back();
 				}

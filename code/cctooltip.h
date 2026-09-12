@@ -19,8 +19,8 @@ class CCToolTip : public ToolTipManager
 		typedef ToolTipManager BASECLASS;
 
 	public:
-		CCToolTip(HWND hWnd) :			/// Inlined in Windows_Procedure
-			BASECLASS(hWnd),
+		CCToolTip(void) :
+			BASECLASS(),
 			UseSidebarSurface(false),
 			Style(TPF_MAP)
 		{
@@ -29,7 +29,7 @@ class CCToolTip : public ToolTipManager
 		virtual ~CCToolTip() override {}
 
 		virtual bool Update(ToolTipText *text) override;
-		virtual void Reset(const ToolTipText *text);
+		virtual void Reset(const ToolTipText *text) override;
 		virtual void Draw_Current(bool sidebar = false) override;
 		virtual void Draw(const ToolTipText *text) override;
 		virtual const char *ToolTip_Text(int id) override;

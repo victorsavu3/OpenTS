@@ -128,7 +128,7 @@ class AbstractClass : public IPersistent
 		 * its place in the map or a side table while its record is still in doubt. An
 		 * implementation chains to its base first and never touches the stream.
 		 */
-		virtual void Post_Load(void);
+		virtual void Post_Load(void) override;
 
 		virtual void Init(void);
 		virtual void Detach(AbstractClass const * target, bool all = true);
@@ -175,6 +175,11 @@ class AbstractClass : public IPersistent
 		 * Dynamic casts from AbstractClass to derived class.
 		 *
 		 * These must only be implemented in their respective modules!
+		 *
+		 * They are members, so an optimizing compiler is entitled to assume the object
+		 * exists and may drop the null test the cast would otherwise make. A caller
+		 * holding a pointer that may be NULL must test it before asking; a test inside
+		 * the helper would be dropped for the same reason.
 		 */
 		UnitClass * As_UnitClass(void);
 		TagClass * As_TagClass(void);

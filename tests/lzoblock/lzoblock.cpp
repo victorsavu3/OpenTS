@@ -15,8 +15,8 @@
 
 #include <cstdio>
 #include <cstring>
-
 #include <lzo/lzo1x.h>
+
 
 #include "lzopipe.h"
 #include "lzostraw.h"

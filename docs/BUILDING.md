@@ -190,9 +190,9 @@ each covers and which files implement it. Every toolchain, MSVC included, builds
 link.
 
 A POSIX target links the executable only when a host answers
-`code/hostwindow.h` and names itself by setting `OPENTS_HOST`. This tree has no
-such host, so on macOS or Linux the executable is left out of the default
-build, and the platform library and the harnesses still build:
+`code/hostwindow.h` and names itself by setting `OPENTS_HOST`. macOS has no
+such host, so there the executable is left out of the default build, and the
+platform library and the harnesses still build:
 
 ```bash
 cmake -S . -B build-macos -G Ninja -DCMAKE_BUILD_TYPE=Debug
@@ -200,17 +200,31 @@ ninja -C build-macos
 ctest --test-dir build-macos
 ```
 
+`code/hostwindow_sdl.cpp` answers `code/hostwindow.h` for Linux with SDL3, so
+the top-level `CMakeLists.txt` sets `OPENTS_HOST` there and `OpenTS` builds and
+links as an ordinary default target, `GameD`/`Game` included:
+
 ```bash
 CC=clang CXX=clang++ cmake -S . -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Debug
 ninja -C build-linux
 ctest --test-dir build-linux
 ```
 
-Linux additionally needs the X11 and OpenGL development headers bgfx's CMake
-probes for even though nothing yet links against them (`libx11-dev`,
-`libxrandr-dev`, `libxi-dev`, `libxcursor-dev`, `libxext-dev`, and
-`libgl1-mesa-dev` or the equivalent on a non-Debian distribution), and
+Linux needs `libsdl3-dev` (or the equivalent package supplying `SDL3` to
+`find_package`) for that host, and, separately, the X11 and OpenGL development
+headers bgfx's own CMake probes for even though nothing yet links against them
+(`libx11-dev`, `libxrandr-dev`, `libxi-dev`, `libxcursor-dev`, `libxext-dev`,
+and `libgl1-mesa-dev` or the equivalent on a non-Debian distribution), and
 `pkg-config`.
+
+Linking `OpenTS` is verified; running it is not. Launched under Xvfb (a
+software-only X server with no DRI3 support), `GameD` opens a real window
+sized to the display and hands bgfx a valid platform handle, but bgfx's
+Vulkan backend then fails to create a presentable surface for the same DRI3
+reason and its OpenGL/EGL fallback crashes inside Mesa's `libEGL_mesa`, in a
+Wayland probe unrelated to this target's own host code. This is a limitation
+of that software-rendering environment, observed once with a debugger
+attached; it is not evidence about a real display.
 
 ### Tests
 

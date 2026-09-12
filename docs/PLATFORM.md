@@ -14,7 +14,7 @@ POSIX and the C++ standard library.
 | Interface | Covers | Windows | Other targets |
 | --- | --- | --- | --- |
 | `code/platform/` | Files, directory searches, file times, free space, waits, the process (its path, the single-instance lock, the timer resolution), the debug log's console and debugger output, and the machine registry | `*_win32.cpp` | `*_posix.cpp` |
-| `code/hostwindow.h` | The game window, the pointer and cursor, key state, message boxes and display modes | `code/hostwindow_win32.cpp` | None in this tree |
+| `code/hostwindow.h` | The game window, the pointer and cursor, key state, message boxes and display modes | `code/hostwindow_win32.cpp` | `code/hostwindow_sdl.cpp` (Linux, over SDL3); none for macOS |
 | `code/crtcompat.h`, `code/crtcompat.cpp` | The MSVC runtime spellings the tree is written against, and `<cstdint>`, which many files rely on for an unqualified `uintptr_t`/`intptr_t` that MSVC and Apple's libc expose globally through other headers but glibc does not | Inert under MSVC | Defined here |
 
 Each implementation file guards itself on the platform it serves and compiles
@@ -124,9 +124,14 @@ opening and closing it (`Host_Create_Window` makes `Has_Main_Window` in
 pointer's position, visibility, confinement and capture, the cursor image, the
 modifier and key state and the character a key types, a message box, and the
 display modes. `code/hostwindow_win32.cpp` answers it on Windows and holds the
-window procedure. No other implementation is in this tree, so a POSIX target
-leaves this header's functions for a host to supply, and until one does the
-executable is not built there ([Building OpenTS](BUILDING.md#other-toolchains)).
+window procedure. `code/hostwindow_sdl.cpp` answers it on Linux over SDL3,
+which stands in for both X11 and Wayland; `code/bgfxbackend.cpp` reads which
+one a running window actually sits on from `Host_Native_Window`'s
+`NativeWindow` (`NATIVE_WINDOW_DEFAULT` with an X11 `Display`/`Window` pair,
+`NATIVE_WINDOW_WAYLAND` with a `wl_display`/`wl_surface` pair), read off the
+window's SDL properties. No implementation exists for macOS, so that POSIX
+target leaves this header's functions for a host to supply, and until one does
+the executable is not built there ([Building OpenTS](BUILDING.md#other-toolchains)).
 
 A host feeds input into shared code. Keys go to
 `Keyboard->Post_Key_Event`. Mouse buttons go to `Game_Window_Mouse_Button` in
@@ -137,6 +142,21 @@ creation and destruction. The Windows window procedure translates its messages
 into these calls, and the keyboard has no window-message handler of its own.
 Tooltips time themselves from the message pump rather than from a window
 timer.
+
+The Linux host reads its own event queue the same way: `Host_Pump_Events`,
+declared in `code/hostwindow.h` for every non-Windows target and defined in
+`code/hostwindow_sdl.cpp`, drains SDL's queue on every call `msgloop.cpp`'s
+`Windows_Message_Handler` already receives throughout the engine, so callers
+elsewhere need nothing target-specific. It maps `SDL_Scancode` to the VK_
+codes `code/keyboard.h` declares (letters share a contiguous run with
+`SDL_SCANCODE_A`..`SDL_SCANCODE_Z`; the rest, digits included, come from a
+table), reports a key's character through `SDL_GetKeyFromScancode`, and a
+message box through `SDL_ShowMessageBox`, which draws with X11 primitives
+directly on that target rather than through a toolkit. One gap: SDL has no
+event for a lost pointer capture, so `Game_Window_Pointer_Capture_Lost` is
+never called there; `code/scroll.cpp`'s drag handling is the only caller that
+depends on it, and only when something outside the game (a window manager
+action, for instance) revokes the capture SDL itself granted.
 
 `code/keyname.cpp` spells a hotkey for the keyboard screen. Windows names each
 key with `GetKeyNameText` from the player's layout; elsewhere the names come

@@ -19,8 +19,9 @@
 | Configurations | Debug and Release, on both platforms |
 
 Other generators, compilers, architectures, and configurations are not
-supported by the current tree. A native macOS target is in progress and
-unsupported; [Other toolchains](#other-toolchains) records what it builds.
+supported by the current tree. Native macOS and Linux targets are in progress
+and unsupported; [Other toolchains](#other-toolchains) records what each
+builds.
 
 Install Visual Studio 2022 with the **Desktop development with C++** workload,
 a Windows SDK, and CMake 3.23 or newer. Git for Windows is needed to clone the
@@ -168,14 +169,18 @@ usual.
 
 > [!WARNING]
 > Nothing in this section is a support claim. Visual Studio 2022 Win32 remains
-> the supported target; what follows is how the macOS target builds, and it is
-> verified only by the harnesses named below.
+> the supported target; what follows is how the macOS and Linux targets build,
+> and each is verified only by the harnesses named below.
 
-The build accepts Apple clang on macOS alongside MSVC. The top-level
-`CMakeLists.txt` sets `OPENTS_MACOS` for it, and with it `OPENTS_POSIX`, which
-compiles the engine with clang against POSIX and the C++ standard library; no
-Windows SDK header is on the include path, and `WIN32` and `_WINDOWS` are
-defined only for a Windows build. macOS is LP64, where Win32 x86 is ILP32.
+The build accepts Apple clang on macOS and clang on Linux alongside MSVC. The
+top-level `CMakeLists.txt` sets `OPENTS_MACOS` or `OPENTS_LINUX` for them, and
+with either, `OPENTS_POSIX`, which compiles the engine with clang against
+POSIX and the C++ standard library; no Windows SDK header is on the include
+path, and `WIN32` and `_WINDOWS` are defined only for a Windows build. macOS
+and Linux are both LP64, where Win32 x86 is ILP32. Only clang is accepted on
+Linux: the same `-fdeclspec` and builtin-suppression flags the macOS target
+needs are Clang-specific and GCC rejects them; a GCC configuration falls
+through to the unsupported-toolchain error.
 
 The engine reaches the operating system and the host through `code/platform/`,
 the game window interface in `code/hostwindow.h`, and the MSVC runtime
@@ -186,8 +191,8 @@ link.
 
 A POSIX target links the executable only when a host answers
 `code/hostwindow.h` and names itself by setting `OPENTS_HOST`. This tree has no
-such host, so on macOS the executable is left out of the default build, and the
-platform library and the harnesses still build:
+such host, so on macOS or Linux the executable is left out of the default
+build, and the platform library and the harnesses still build:
 
 ```bash
 cmake -S . -B build-macos -G Ninja -DCMAKE_BUILD_TYPE=Debug
@@ -195,14 +200,27 @@ ninja -C build-macos
 ctest --test-dir build-macos
 ```
 
+```bash
+CC=clang CXX=clang++ cmake -S . -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Debug
+ninja -C build-linux
+ctest --test-dir build-linux
+```
+
+Linux additionally needs the X11 and OpenGL development headers bgfx's CMake
+probes for even though nothing yet links against them (`libx11-dev`,
+`libxrandr-dev`, `libxi-dev`, `libxcursor-dev`, `libxext-dev`, and
+`libgl1-mesa-dev` or the equivalent on a non-Debian distribution), and
+`pkg-config`.
+
 ### Tests
 
-`tests/` builds under both toolchains. None of the harnesses reads game data.
+`tests/` builds under every toolchain. None of the harnesses reads game data.
 
 | Target | Tests registered |
 | --- | --- |
 | MSVC | 44: the eleven below and 33 more from the directories listed under `if(MSVC)` in `tests/CMakeLists.txt` |
 | macOS | 11 |
+| Linux | 11 (verified with clang 19 on Debian trixie; GCC is not accepted, see above) |
 
 The eleven that build everywhere are `sosparity`, `unvqdelta`, `lzoblock`,
 `zbufring`, `priorityqueue`, `platformfile`, `save`, `uifontdialog`,

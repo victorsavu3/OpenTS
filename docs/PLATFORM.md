@@ -8,35 +8,37 @@ and what has been run. Visual Studio 2022 Win32 is the supported target;
 nothing here extends that.
 
 Off Windows no engine file sees the Windows SDK: `code/win.h` includes it only
-under `_WIN32`, and the macOS target compiles with clang against POSIX and the
-C++ standard library.
+under `_WIN32`, and the macOS and Linux targets compile with clang against
+POSIX and the C++ standard library.
 
 | Interface | Covers | Windows | Other targets |
 | --- | --- | --- | --- |
 | `code/platform/` | Files, directory searches, file times, free space, waits, the process (its path, the single-instance lock, the timer resolution), the debug log's console and debugger output, and the machine registry | `*_win32.cpp` | `*_posix.cpp` |
 | `code/hostwindow.h` | The game window, the pointer and cursor, key state, message boxes and display modes | `code/hostwindow_win32.cpp` | None in this tree |
-| `code/crtcompat.h`, `code/crtcompat.cpp` | The MSVC runtime spellings the tree is written against | Inert under MSVC | Defined here |
+| `code/crtcompat.h`, `code/crtcompat.cpp` | The MSVC runtime spellings the tree is written against, and `<cstdint>`, which many files rely on for an unqualified `uintptr_t`/`intptr_t` that MSVC and Apple's libc expose globally through other headers but glibc does not | Inert under MSVC | Defined here |
 
 Each implementation file guards itself on the platform it serves and compiles
 to nothing elsewhere.
 
 ## 1 Layout and ABI
 
-macOS is LP64, and this tree builds only the platform library and the harnesses
-there. Nothing pins a Windows width on it, so the engine's layout-sensitive
-structures are not established at those widths. The build settles the
-differences that do not depend on width:
+macOS and Linux are both LP64, and this tree builds only the platform library
+and the harnesses there. Nothing pins a Windows width on either, so the
+engine's layout-sensitive structures are not established at those widths. The
+build settles the differences that do not depend on width, the same way on
+both:
 
-| Property | MSVC Win32 x86 | clang on macOS | Settled by |
+| Property | MSVC Win32 x86 | clang on macOS or Linux | Settled by |
 | --- | --- | --- | --- |
 | `void *`, `long`, `size_t` | 4 bytes | 8 bytes | nothing |
 | `wchar_t` | 2 bytes | 4 bytes | `-fshort-wchar` |
 | Strict aliasing | not assumed | assumed | `-fno-strict-aliasing` |
 | Null test on `this` in a `dynamic_cast` | kept | deleted | `-fno-delete-null-pointer-checks` |
 
-`size_t` is `unsigned int` under MSVC Win32 and `unsigned long` on macOS, so a
-`std::min(unsigned, size_t)` that deduced one type under MSVC deduces two
-there; the fix is an explicit template argument at the call. The two-byte
+`size_t` is `unsigned int` under MSVC Win32 and `unsigned long` on macOS and
+Linux, so a `std::min(unsigned, size_t)` that deduced one type under MSVC
+deduces two there; the fix is an explicit template argument at the call. The
+two-byte
 `wchar_t` is compiled against a library that assumes four, so no C library
 wide-string routine may be called, and the compiler can turn a hand-written
 length loop back into that library's `wcslen`; `-fno-builtin-wcslen` and
@@ -161,7 +163,8 @@ format, none of which exists off Windows. The file is compiled rather than
 excluded, with the reporter behind `_WIN32` and empty stubs of its entry points
 for every other target, so a fault there is reported by the operating system
 alone. The engine throws no C++ exceptions of its own; the macOS build passes
-`-fexceptions` to match `/EHsc`.
+`-fexceptions` to match `/EHsc`. The Linux build needs no equivalent flag:
+clang already defaults to it for C++ there.
 
 Off MSVC, `CPU_Id` in `code/getcpu.cpp` does not run CPUID and reports family 4
 with the vendor `Not available`.

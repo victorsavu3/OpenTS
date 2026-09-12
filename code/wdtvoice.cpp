@@ -163,7 +163,7 @@ bool WDT_Random_Pick_Sound_Filename(int side, VOICEINDEX_LIST & list, char * buf
 /// <remarks>Be sure the destination buffer is big enough to hold a sound filename.</remarks>
 bool WDT_Make_Sound_Filename(int side, int index, char * buffer, int bufsize)
 {
-	sprintf(buffer, side == 3 ? "01-W%03d.v01" : "00-W%03d.v00", index);
+	snprintf(buffer, bufsize, side == 3 ? "01-W%03d.v01" : "00-W%03d.v00", index);
 	return(true);
 }
 

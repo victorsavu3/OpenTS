@@ -34,6 +34,10 @@ elseif(UNIX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # its state. Clang is required for the same reasons as the macOS target: the POSIX
     # compile options below assume its declspec and builtin-suppression flags.
     set(OPENTS_LINUX ON)
+
+    # code/hostwindow_sdl.cpp answers code/hostwindow.h with SDL3, which names it as the
+    # Linux target's host so code/CMakeLists.txt builds OpenTS rather than excluding it.
+    set(OPENTS_HOST "sdl")
 elseif(MSVC)
     if(MSVC_VERSION LESS 1930)
         message(FATAL_ERROR "OpenTS requires MSVC 19.30 or newer.")

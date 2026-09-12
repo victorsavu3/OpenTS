@@ -358,8 +358,7 @@ fixed_exclusions:
     reason: Generic graphic-menu polling and activation, not a named application control.
   - site: { file: code/grphmsct.cpp, function: GM_Build_Key, expression: VK_NONE }
     reason: Sentinel used while translating a menu accelerator into a virtual key.
-  - sites:
-      - { file: code/init.cpp, function: Main_Menu_Keys, expression: KN_RLSE_BIT }
+  - site: { file: code/init.cpp, function: Main_Menu_Keys, expression: KN_RLSE_BIT }
     reason: Filters release events before the classic main-menu cheat handler.
   - sites:
       - { file: code/init.cpp, function: Init_Commands, expression: KN_DELETE }

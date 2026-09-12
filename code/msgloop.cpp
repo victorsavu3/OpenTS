@@ -27,10 +27,6 @@
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
  * Functions:                                                                                  *
- *   Add_Accelerator -- Adds a keyboard accelerator to the message handler.                    *
- *   Add_Modeless_Dialog -- Adds a modeless dialog box to the message handler.                 *
- *   Remove_Accelerator -- Removes an accelerator from the message processor.                  *
- *   Remove_Modeless_Dialog -- Removes the dialog box from the message tracking handler.       *
  *   Windows_Message_Handler -- Handles windows message.                                       *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
@@ -41,8 +37,9 @@
 #include "_tooltip.h"
 #include "_ui.h"
 #include "cctooltip.h"
-#include "vector.h"
+#include "mainwindow.h"
 #include "video.h"
+#include "win.h"
 
 
 /***********************************************************************************************
@@ -66,7 +63,9 @@
  *=============================================================================================*/
 void Windows_Message_Handler(void)
 {
-	if (MainWindow == 0) return;
+#if defined(_WIN32)
+
+	if (!Has_Main_Window()) return;
 
 	MSG msg;
 
@@ -78,10 +77,6 @@ void Windows_Message_Handler(void)
 			return;
 		}
 
-		if (ToolTips != NULL) {
-			ToolTips->Message_Handler(&msg);
-		}
-
 		/*
 		**	If the message makes it to this point, then it must be a normal message. Process
 		**	it in the normal fashion. The message will appear in the window message handler
@@ -89,6 +84,11 @@ void Windows_Message_Handler(void)
 		*/
 		TranslateMessage(&msg);
 		DispatchMessageW(&msg);
+	}
+#endif
+
+	if (ToolTips != NULL) {
+		ToolTips->Service();
 	}
 
 	/*

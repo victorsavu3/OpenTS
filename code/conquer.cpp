@@ -66,6 +66,8 @@
 
 #include "conquer.h"
 
+#include "hostwindow.h"
+
 #include "_keyboar.h"
 #include "_map.h"
 #include "_palette.h"
@@ -350,18 +352,7 @@ void Main_Game(int argc, char * argv[])
 	int ret = Init_Game(argc, argv);
 	if (ret) {
 		if (ret < 0) {
-			MSGBOXPARAMS params;
-			params.cbSize = sizeof(MSGBOXPARAMS);
-			params.hwndOwner = MainWindow;
-			params.hInstance = ProgramInstance;
-			params.lpszText = Fetch_String(TXT_INITGAME_FAILED);
-			params.lpszCaption = Fetch_String(TXT_SHORT_TITLE);
-			params.dwStyle = (MB_OK | MB_ICONSTOP | MB_SETFOREGROUND | MB_TOPMOST);
-			params.lpszIcon = NULL;
-			params.dwContextHelpId = NULL;
-			params.lpfnMsgBoxCallback = NULL;
-			params.dwLanguageId = MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT);
-			MessageBoxIndirect(&params);
+			Host_Message_Box(Fetch_String(TXT_SHORT_TITLE), Fetch_String(TXT_INITGAME_FAILED), HOST_BOX_OK | HOST_BOX_ERROR);
 		}
 		return;
 	}

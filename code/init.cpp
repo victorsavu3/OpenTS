@@ -153,6 +153,8 @@
 #include "ovrlight.h"
 #include "ownrdraw.h"
 #include "partsys.h"
+#include "platform/file.h"
+#include "platform/filetime.h"
 #include "png.h"
 #include "queue.h"
 #include "ramfile.h"

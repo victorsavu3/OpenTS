@@ -39,6 +39,10 @@ foreach(f ${OPENTS_RAW})
         endif()
     endforeach()
 
+    if(f MATCHES "/platform/[^/]*\\.cpp$")
+        set(EXCLUDED TRUE)
+    endif()
+
     if(NOT EXCLUDED)
         list(APPEND OPENTS_SRC "${f}")
     endif()
@@ -144,6 +148,9 @@ target_include_directories(OpenTS PRIVATE
 # The generated build stamp has to exist before anything compiles.
 add_dependencies(OpenTS OpenTSBuildStamp)
 
+# The platform layer: files, directory searches, free space and file times, with a Windows
+# and a POSIX implementation that each guard themselves. It is compiled with the engine's
+# own options.
 # bgfx's include paths and settings apply only to the two files that include it: the frame
 # renderer and the UI overlay renderer.
 set(BGFX_ROOT "${CMAKE_SOURCE_DIR}/thirdparty/bgfx.cmake/bgfx")

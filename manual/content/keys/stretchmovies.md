@@ -13,4 +13,6 @@ A stretched movie keeps its shape. It grows by whichever of the two axes runs ou
 
 The screen is cleared ahead of any full screen movie that will not cover the display, stretched or not, whether or not its caller asked for a clear. The bands around such a movie are therefore black rather than whatever the display last held.
 
+The picture is resampled smoothly as it grows, which takes out the fine speckle that the movies' sixteen bit color carries and softens the edges of the compression's own blocks. A movie left at its own size is copied rather than resampled and looks exactly as it always did.
+
 The display options screen has the same switch and stores it as the screen is accepted; leaving the options screen behind it writes the setting back to `sun.ini`.

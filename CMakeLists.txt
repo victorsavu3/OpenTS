@@ -29,6 +29,11 @@ elseif(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # The native macOS target is in progress and unsupported; docs/BUILDING.md records
     # its state.
     set(OPENTS_MACOS ON)
+elseif(UNIX AND NOT APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # The native Linux target is in progress and unsupported; docs/BUILDING.md records
+    # its state. Clang is required for the same reasons as the macOS target: the POSIX
+    # compile options below assume its declspec and builtin-suppression flags.
+    set(OPENTS_LINUX ON)
 elseif(MSVC)
     if(MSVC_VERSION LESS 1930)
         message(FATAL_ERROR "OpenTS requires MSVC 19.30 or newer.")
@@ -59,7 +64,7 @@ if(NOT OPENTS_ARCH)
 endif()
 
 # Only the Windows toolchains have a resource compiler.
-if(NOT OPENTS_MACOS)
+if(NOT OPENTS_MACOS AND NOT OPENTS_LINUX)
     enable_language(RC)
 endif()
 
@@ -113,8 +118,8 @@ add_custom_target(OpenTSBuildStamp ALL
     VERBATIM
 )
 
-# macOS builds with clang against POSIX rather than the Windows SDK.
-if(OPENTS_MACOS)
+# macOS and Linux both build against POSIX rather than the Windows SDK.
+if(OPENTS_MACOS OR OPENTS_LINUX)
     set(OPENTS_POSIX ON)
 endif()
 

@@ -60,6 +60,8 @@
 
 #include "color.hh"
 
+#include <cstdarg>
+
 
 /***********************************************************************************************
  * Draw_Box -- Displays a highlighted box.                                                     *

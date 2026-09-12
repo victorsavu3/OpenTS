@@ -41,11 +41,17 @@
 
 #include <intrin.h>
 
+static unsigned long long Read_Steady_Clock_Ticks(void)
+{
+	return(__rdtsc());
+}
+
 #else
 
 // RDTSC is an x86 opcode reached through an MSVC intrinsic. The steady clock answers the same
 // question elsewhere, at the rate Get_CPU_Rate reports, which is all the callers here compare.
-static unsigned long long __rdtsc(void)
+// Named apart from __rdtsc: clang declares that name itself as a non-static builtin on x86.
+static unsigned long long Read_Steady_Clock_Ticks(void)
 {
 	return((unsigned long long)std::chrono::steady_clock::now().time_since_epoch().count());
 }
@@ -88,7 +94,7 @@ unsigned int Get_CPU_Rate(unsigned int & high)
 /// <returns>unsigned int; the low half of the clock value.</returns>
 unsigned int Get_CPU_Clock(unsigned int & high)
 {
-	unsigned long long const stamp = __rdtsc();
+	unsigned long long const stamp = Read_Steady_Clock_Ticks();
 
 	high = (unsigned int)(stamp >> 32);
 	return((unsigned int)stamp);

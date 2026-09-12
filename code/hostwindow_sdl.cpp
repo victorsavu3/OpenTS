@@ -19,6 +19,7 @@
 #include "hostwindow.h"
 
 #include "_keyboar.h"
+#include "dbgprint.h"
 #include "gamewindow.h"
 #include "globals.h"
 #include "goptions.h"
@@ -37,6 +38,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 
 
 struct HostCursor
@@ -192,23 +194,48 @@ unsigned short Scancode_To_VK(SDL_Scancode code)
 }
 
 
+// Every SDL call in this file that answers with a bool or a null on failure is checked and
+// logged here rather than silently discarded, so a host-side failure shows up in the debug
+// log instead of only as a missing cursor, an unheld focus request, or the like.
+void Log_If_Failed(bool ok, char const * what)
+{
+	if (!ok) {
+		DebugString("SDL: %s failed: %s\n", what, SDL_GetError());
+	}
+}
+
+
 void Apply_Cursor_Visibility(void)
 {
 	if (_ShowCount < 0 || _ExplicitlyHidden) {
-		SDL_HideCursor();
+		Log_If_Failed(SDL_HideCursor(), "SDL_HideCursor");
 		return;
 	}
 
-	SDL_ShowCursor();
-	SDL_SetCursor(_CurrentCursor != nullptr ? _CurrentCursor : SDL_GetDefaultCursor());
+	Log_If_Failed(SDL_ShowCursor(), "SDL_ShowCursor");
+	Log_If_Failed(SDL_SetCursor(_CurrentCursor != nullptr ? _CurrentCursor : SDL_GetDefaultCursor()), "SDL_SetCursor");
 }
 
 
 void Ensure_Video_Init(void)
 {
 	if (!SDL_WasInit(SDL_INIT_VIDEO)) {
-		SDL_InitSubSystem(SDL_INIT_VIDEO);
+		if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
+			DebugString("SDL: InitSubSystem(VIDEO) failed: %s\n", SDL_GetError());
+		}
 	}
+}
+
+
+// Answers a request to end the whole application (the window's own close box, or SDL's
+// SIGINT/SIGTERM translation) outside a running game. A running game resigns through
+// Queue_Exit, which Main_Loop notices by GameActive going false and unwinds on its own; nothing
+// polls Has_Main_Window from the menu screens or the modal UI runner above them, so closing the
+// window there would otherwise leave the process running with no window to show for it.
+void Quit_Application(void)
+{
+	Host_Close_Window();
+	std::exit(EXIT_SUCCESS);
 }
 
 }	// namespace
@@ -253,9 +280,9 @@ void Host_Confine_Pointer(bool confine)
 		int width, height;
 		SDL_GetWindowSize(_Window, &width, &height);
 		SDL_Rect const rect{ 0, 0, width, height };
-		SDL_SetWindowMouseRect(_Window, &rect);
+		Log_If_Failed(SDL_SetWindowMouseRect(_Window, &rect), "SDL_SetWindowMouseRect");
 	} else {
-		SDL_SetWindowMouseRect(_Window, nullptr);
+		Log_If_Failed(SDL_SetWindowMouseRect(_Window, nullptr), "SDL_SetWindowMouseRect(NULL)");
 	}
 }
 
@@ -263,14 +290,14 @@ void Host_Confine_Pointer(bool confine)
 void Host_Capture_Pointer(void)
 {
 	_Captured = true;
-	SDL_CaptureMouse(true);
+	Log_If_Failed(SDL_CaptureMouse(true), "SDL_CaptureMouse(true)");
 }
 
 
 void Host_Release_Pointer(void)
 {
 	_Captured = false;
-	SDL_CaptureMouse(false);
+	Log_If_Failed(SDL_CaptureMouse(false), "SDL_CaptureMouse(false)");
 }
 
 
@@ -297,6 +324,7 @@ HostCursor * Host_Create_Cursor(std::uint32_t const * pixels, int width, int hei
 	SDL_Surface * surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_ARGB32,
 		(void *)pixels, width * (int)sizeof(std::uint32_t));
 	if (surface == nullptr) {
+		DebugString("SDL: SDL_CreateSurfaceFrom failed: %s\n", SDL_GetError());
 		return(nullptr);
 	}
 
@@ -304,6 +332,7 @@ HostCursor * Host_Create_Cursor(std::uint32_t const * pixels, int width, int hei
 	SDL_DestroySurface(surface);
 
 	if (handle == nullptr) {
+		DebugString("SDL: SDL_CreateColorCursor failed: %s\n", SDL_GetError());
 		return(nullptr);
 	}
 
@@ -433,11 +462,18 @@ void Host_Create_Window(int width, int height)
 	}
 
 	_Window = SDL_CreateWindow("Tiberian Sun", std::max(clientwidth, 1), std::max(clientheight, 1), flags);
-	if (_Window == nullptr) return;
+	if (_Window == nullptr) {
+		DebugString("SDL: SDL_CreateWindow failed: %s\n", SDL_GetError());
+		return;
+	}
 
 	if (WindowedMode) {
-		SDL_SetWindowPosition(_Window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+		Log_If_Failed(SDL_SetWindowPosition(_Window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED), "SDL_SetWindowPosition");
 	}
+
+	// A new window is shown but is not guaranteed input focus by every window manager; the
+	// Win32 host asks for it explicitly with SetFocus, so this host asks SDL the same way.
+	Log_If_Failed(SDL_RaiseWindow(_Window), "SDL_RaiseWindow");
 
 	SDL_GetWindowSizeInPixels(_Window, &_LastWidth, &_LastHeight);
 
@@ -506,7 +542,7 @@ void Host_Invalidate_Window(void)
 	SDL_zero(event);
 	event.type = SDL_EVENT_WINDOW_EXPOSED;
 	event.window.windowID = SDL_GetWindowID(_Window);
-	SDL_PushEvent(&event);
+	Log_If_Failed(SDL_PushEvent(&event), "SDL_PushEvent(EXPOSED)");
 }
 
 
@@ -514,7 +550,7 @@ void Host_Focus_Window(void)
 {
 	if (_Window == nullptr) return;
 
-	SDL_RaiseWindow(_Window);
+	Log_If_Failed(SDL_RaiseWindow(_Window), "SDL_RaiseWindow");
 }
 
 
@@ -540,8 +576,8 @@ void Host_Fit_Window_To_Frame(int width, int height)
 		if (y < work.y) y = work.y;
 	}
 
-	SDL_SetWindowPosition(_Window, x, y);
-	SDL_SetWindowSize(_Window, std::max(width, 1), std::max(height, 1));
+	Log_If_Failed(SDL_SetWindowPosition(_Window, x, y), "SDL_SetWindowPosition");
+	Log_If_Failed(SDL_SetWindowSize(_Window, std::max(width, 1), std::max(height, 1)), "SDL_SetWindowSize");
 }
 
 
@@ -614,21 +650,41 @@ void Host_Pump_Events(void)
 {
 	if (_Window == nullptr) return;
 
+	// Every case below reads a window-scoped event, and the Win32 host checks its own
+	// equivalent (hwnd == MainWindow) before touching GameInFocus; an event meant for some
+	// other window SDL may own (a message box, an IME popup) must not be mistaken for ours.
+	SDL_WindowID const own_window = SDL_GetWindowID(_Window);
+
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
+			// SDL installs its own SIGINT/SIGTERM handlers and turns either into this event
+			// rather than letting the process die (SDL_HINT_NO_SIGNAL_HANDLERS is unset), so
+			// leaving it unhandled makes the game immune to a plain kill; only SIGKILL still
+			// works. Treated exactly like the window's own close request.
+			case SDL_EVENT_QUIT:
+				if (GameActive && PlayerPtr != NULL && !Session.Play) {
+					Queue_Exit();
+				} else {
+					Quit_Application();
+				}
+				break;
+
 			case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+				if (event.window.windowID != own_window) break;
+
 				// Mirrors the SC_CLOSE handling the Win32 window procedure gives its title
 				// bar close box: a running game resigns instead of vanishing.
 				if (GameActive && PlayerPtr != NULL && !Session.Play) {
 					Queue_Exit();
 				} else {
-					Host_Close_Window();
-					return;
+					Quit_Application();
 				}
 				break;
 
 			case SDL_EVENT_WINDOW_RESIZED: {
+				if (event.window.windowID != own_window) break;
+
 				int new_width, new_height;
 				if (SDL_GetWindowSizeInPixels(_Window, &new_width, &new_height)
 						&& (new_width != _LastWidth || new_height != _LastHeight)) {
@@ -641,10 +697,14 @@ void Host_Pump_Events(void)
 			}
 
 			case SDL_EVENT_WINDOW_EXPOSED:
+				if (event.window.windowID != own_window) break;
+
 				Game_Window_On_Paint(GameInFocus == true || WindowedMode == true);
 				break;
 
 			case SDL_EVENT_WINDOW_FOCUS_GAINED:
+				if (event.window.windowID != own_window) break;
+
 				if (!GameInFocus) {
 					GameInFocus = true;
 					Focus_Restore();
@@ -652,6 +712,8 @@ void Host_Pump_Events(void)
 				break;
 
 			case SDL_EVENT_WINDOW_FOCUS_LOST:
+				if (event.window.windowID != own_window) break;
+
 				if (GameInFocus) {
 					GameInFocus = false;
 					Focus_Loss();
@@ -660,6 +722,8 @@ void Host_Pump_Events(void)
 
 			case SDL_EVENT_KEY_DOWN:
 			case SDL_EVENT_KEY_UP:
+				if (event.key.windowID != own_window) break;
+
 				// Scroll Lock was a debugger's breakpoint key and types nothing. A key SDL
 				// repeats while held is taken only once, on its first press.
 				if (event.key.scancode == SDL_SCANCODE_SCROLLLOCK && event.type == SDL_EVENT_KEY_DOWN) {
@@ -678,6 +742,8 @@ void Host_Pump_Events(void)
 
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 			case SDL_EVENT_MOUSE_BUTTON_UP: {
+				if (event.button.windowID != own_window) break;
+
 				unsigned short vk = VK_NONE;
 				switch (event.button.button) {
 					case SDL_BUTTON_LEFT:		vk = VK_LBUTTON; break;
@@ -701,6 +767,8 @@ void Host_Pump_Events(void)
 			}
 
 			case SDL_EVENT_MOUSE_WHEEL:
+				if (event.wheel.windowID != own_window) break;
+
 				Game_Window_On_Mouse_Wheel(event.wheel.y > 0.0f ? 120 : -120);
 				break;
 

@@ -217,14 +217,34 @@ headers bgfx's own CMake probes for even though nothing yet links against them
 and `libgl1-mesa-dev` or the equivalent on a non-Debian distribution), and
 `pkg-config`.
 
-Linking `OpenTS` is verified; running it is not. Launched under Xvfb (a
-software-only X server with no DRI3 support), `GameD` opens a real window
-sized to the display and hands bgfx a valid platform handle, but bgfx's
-Vulkan backend then fails to create a presentable surface for the same DRI3
-reason and its OpenGL/EGL fallback crashes inside Mesa's `libEGL_mesa`, in a
-Wayland probe unrelated to this target's own host code. This is a limitation
-of that software-rendering environment, observed once with a debugger
-attached; it is not evidence about a real display.
+Linking `OpenTS` is verified, and so is running it: against a real Tiberian
+Sun install on a real Wayland desktop (`SDL_VIDEODRIVER=wayland`), `GameD`
+loads its MIX files and `rules.ini`, plays menu music and UI sounds, and bgfx
+selects and initializes the Vulkan backend. Under Xvfb (a software-only X
+server with no DRI3 support) the window still opens and hands bgfx a valid
+platform handle, but bgfx's Vulkan backend fails to create a presentable
+surface for the same DRI3 reason and its OpenGL/EGL fallback crashes inside
+Mesa's `libEGL_mesa`, in a Wayland probe unrelated to this target's own host
+code; that is a limitation of that software-rendering environment, not
+evidence about a real display.
+
+Two runtime issues turned up under real use and are fixed in `code/hostwindow_sdl.cpp`:
+
+- SDL installs its own `SIGINT`/`SIGTERM` handlers by default and turns
+  either into an `SDL_EVENT_QUIT` the application must answer itself; an
+  unhandled one left the process needing `SIGKILL`. `Host_Pump_Events` now
+  answers it the way it already answered the window's own close box: a
+  running game resigns through `Queue_Exit`, and everywhere else the process
+  exits directly, since nothing above `Host_Pump_Events` polls
+  `Has_Main_Window` to notice the window is already gone.
+- A custom pointer image built through `Host_Create_Cursor` and applied
+  through `Host_Set_Cursor` (`SDL_CreateColorCursor` and `SDL_SetCursor`)
+  never becomes visible under Wayland, verified against a real `wl_seat` and
+  genuine pointer-enter events, with every SDL call involved reporting
+  success; an `SDL_SYSTEM_CURSOR_*` shape shown the same way renders
+  correctly. This is a known class of upstream SDL3-on-Wayland limitation
+  with client-supplied cursor surfaces, not a call this host gets wrong, and
+  it is unfixed: the game's own pointer is not visible there today.
 
 ### Tests
 

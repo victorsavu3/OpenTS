@@ -158,6 +158,27 @@ never called there; `code/scroll.cpp`'s drag handling is the only caller that
 depends on it, and only when something outside the game (a window manager
 action, for instance) revokes the capture SDL itself granted.
 
+`SDL_Init` installs its own `SIGINT` and `SIGTERM` handlers by default and
+turns either into an `SDL_EVENT_QUIT` rather than letting the process die, so
+`Host_Pump_Events` answers that event exactly as it answers the window's own
+close request: a running game resigns through `Queue_Exit`, and everywhere
+else the process exits directly, since nothing above `Host_Pump_Events` polls
+`Has_Main_Window` to notice the window is already gone. Every window-scoped
+event this host reads is also checked against the one window it owns before
+acting on it, the way the Win32 window procedure checks `hwnd == MainWindow`,
+so a window SDL creates for its own purposes (a message box, for one) cannot
+be mistaken for the game window gaining or losing focus.
+
+A verified, open limitation: the pointer image `Host_Create_Cursor` and
+`Host_Set_Cursor` build and apply (`SDL_CreateColorCursor`, `SDL_SetCursor`)
+does not render under Wayland, confirmed against a real `wl_seat` and genuine
+pointer-enter events, with every SDL call involved reporting success; an
+`SDL_SYSTEM_CURSOR_*` shape shown through the same `SDL_SetCursor` renders
+correctly in the same session. This is a known class of upstream SDL3 bug
+with client-supplied Wayland cursor surfaces, not a call this host gets
+wrong, and there is no workaround from this side: the game's own pointer is
+invisible under Wayland today.
+
 `code/keyname.cpp` spells a hotkey for the keyboard screen. Windows names each
 key with `GetKeyNameText` from the player's layout; elsewhere the names come
 from a US-layout table. `tests/keyname` checks both.

@@ -37,6 +37,7 @@
 #include "_tooltip.h"
 #include "_ui.h"
 #include "cctooltip.h"
+#include "hostwindow.h"
 #include "mainwindow.h"
 #include "video.h"
 #include "win.h"
@@ -84,6 +85,10 @@ void Windows_Message_Handler(void)
 		*/
 		TranslateMessage(&msg);
 		DispatchMessageW(&msg);
+	}
+#else
+	if (Has_Main_Window()) {
+		Host_Pump_Events();
 	}
 #endif
 

@@ -338,6 +338,14 @@ if(OPENTS_MACOS)
     )
 endif()
 
+# code/hostwindow_sdl.cpp is the Linux host: SDL3 supplies the window, its pointer and
+# cursor, key state, message boxes and display modes, over whichever of X11 or Wayland the
+# session is actually running.
+if(OPENTS_LINUX)
+    find_package(SDL3 REQUIRED)
+    target_link_libraries(OpenTS PRIVATE SDL3::SDL3)
+endif()
+
 if (WIN32)
     target_link_libraries(OpenTS PRIVATE
         comctl32

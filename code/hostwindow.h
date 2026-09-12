@@ -99,3 +99,11 @@ enum HostMessageBoxAnswer {
 // Asks the player, and waits for the answer. A host that cannot ask answers as a dismissed
 // box does: OK for a plain box, no for a yes-or-no question.
 HostMessageBoxAnswer Host_Message_Box(char const * caption, char const * text, unsigned int style);
+
+#if !defined(_WIN32)
+// Delivers whatever the host's own event queue holds into Keyboard->Post_Key_Event,
+// Game_Window_Mouse_Button and the rest of gamewindow.h, the way the Win32 window procedure
+// does as Windows dispatches to it. msgloop.cpp calls this where the Win32 build instead
+// pumps its message queue directly.
+void Host_Pump_Events(void);
+#endif

@@ -26,7 +26,7 @@ Place data from a legitimate copy of Tiberian Sun under `Run/`. The tracked `Run
 
 Firestorm counts as installed when the game finds `FIRESTRM.INI`. That one file decides it, so a deployment keeping the expansion's content in its own archives is still offered Firestorm, and one without that file can only play the base game.
 
-Do not place game data in the CMake build directory. The build writes the executable and `Language.dll` into `build/bin/<configuration>/` and copies nothing into `Run/`, so the build tree holds only what the build produced.
+Do not place game data in the CMake build directory. The build writes the executable and `Language.dll` into `build/bin/<configuration>/` and copies nothing into `Run/`, so the build tree holds only what the build produced. Keep game data in `Run/` and name that directory with `-DATADIR=` when launching a build, as [Build and run](/using/build-and-run/) shows.
 
 ## Keeping the data somewhere else
 

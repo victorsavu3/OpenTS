@@ -23,7 +23,6 @@
 #include "conquer.h"
 #include "data.h"
 #include "dbgprint.h"
-#include "dialogresult.h"
 #include "globals.h"
 #include "goptions.h"
 #include "houstype.h"
@@ -43,6 +42,7 @@
 #include "scenario.h"
 #include "sendfile.h"
 #include "platform/registry.h"
+#include "platform/wait.h"
 #include "srfcache.h"
 #include "stimer.h"
 #include "timer.h"
@@ -396,7 +396,7 @@ bool Net2Can_Start(void)
 bool Net2_Service_Lobby(void)
 {
 	Ipx.Service();
-	Sleep(0);
+	Platform_Sleep(0);
 	Call_Back();
 	Ipx.Service();
 	Title_Screen_Restore();

@@ -16,7 +16,6 @@
 #include "conquer.h"
 #include "data.h"
 #include "dbgprint.h"
-#include "dialogresult.h"
 #include "globals.h"
 #include "goptions.h"
 #include "hostwindow.h"

@@ -26,6 +26,7 @@
 #include "msgbox.h"
 #include "netdlg.h"
 #include "netglobal.h"
+#include "platform/wait.h"
 #include "rawfile.h"
 #include "rules.h"
 #include "saveload.h"
@@ -602,7 +603,7 @@ void SaveManagerClass::Process_Pending_Load_Game(void)
 		}
 		UI_Service_Game();
 		UIShell.Tick();
-		Sleep(10);
+		Platform_Sleep(10);
 	}
 
 	box.Hide();

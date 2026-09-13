@@ -169,15 +169,14 @@ acting on it, the way the Win32 window procedure checks `hwnd == MainWindow`,
 so a window SDL creates for its own purposes (a message box, for one) cannot
 be mistaken for the game window gaining or losing focus.
 
-A verified, open limitation: the pointer image `Host_Create_Cursor` and
-`Host_Set_Cursor` build and apply (`SDL_CreateColorCursor`, `SDL_SetCursor`)
-does not render under Wayland, confirmed against a real `wl_seat` and genuine
-pointer-enter events, with every SDL call involved reporting success; an
-`SDL_SYSTEM_CURSOR_*` shape shown through the same `SDL_SetCursor` renders
-correctly in the same session. This is a known class of upstream SDL3 bug
-with client-supplied Wayland cursor surfaces, not a call this host gets
-wrong, and there is no workaround from this side: the game's own pointer is
-invisible under Wayland today.
+The pointer went invisible once the game released it (`Host_Hide_Cursor`
+sets `_ExplicitlyHidden`) and never came back on its own: nothing cleared
+the flag afterward, because no SDL event corresponds to Win32's
+`WM_SETCURSOR`, which Windows sends on every query and which is what
+clears the equivalent state there. `Host_Pump_Events` now answers that
+query itself, once per pump, calling `Win_Cursor_Handle_Set_Cursor` and
+falling back to the host's own arrow when the game does not currently own
+the pointer — this was never an SDL or Wayland rendering bug.
 
 `code/keyname.cpp` spells a hotkey for the keyboard screen. Windows names each
 key with `GetKeyNameText` from the player's layout; elsewhere the names come

@@ -478,6 +478,11 @@ void Host_Create_Window(int width, int height)
 	// Win32 host asks for it explicitly with SetFocus, so this host asks SDL the same way.
 	Log_If_Failed(SDL_RaiseWindow(_Window), "SDL_RaiseWindow");
 
+	// Off unless asked for, unlike WM_CHAR, which Windows always sends; the UI shell reads
+	// SDL_EVENT_TEXT_INPUT the same way it reads WM_CHAR, so this host asks for it once here
+	// instead of starting and stopping it around whichever document currently wants text.
+	Log_If_Failed(SDL_StartTextInput(_Window), "SDL_StartTextInput");
+
 	SDL_GetWindowSizeInPixels(_Window, &_LastWidth, &_LastHeight);
 
 	Game_Window_Created();
@@ -717,15 +722,39 @@ void Host_Pump_Events(void)
 			case SDL_EVENT_WINDOW_FOCUS_LOST:
 				if (event.window.windowID != own_window) break;
 
+				// Drops the UI shell's own capture and composition state; never consumed,
+				// the same way code/ui/uiwin32.cpp answers WM_KILLFOCUS.
+				UI_Handle_SDL_Event(event);
+
 				if (GameInFocus) {
 					GameInFocus = false;
 					Focus_Loss();
 				}
 				break;
 
+			case SDL_EVENT_MOUSE_MOTION: {
+				if (event.motion.windowID != own_window) break;
+
+				// A move is never consumed: the game keeps tracking the cursor through
+				// Host_Pointer_Position whatever a document is doing with it, and has no
+				// event of its own to answer here.
+				Point2D point((int)event.motion.x, (int)event.motion.y);
+				Window_Point_To_Game(point);
+
+				SDL_Event ui_event = event;
+				ui_event.motion.x = (float)point.X;
+				ui_event.motion.y = (float)point.Y;
+				UI_Handle_SDL_Event(ui_event);
+				break;
+			}
+
 			case SDL_EVENT_KEY_DOWN:
 			case SDL_EVENT_KEY_UP:
 				if (event.key.windowID != own_window) break;
+
+				// Before the game's own handling, so input a document took never reaches
+				// the keyboard buffer; a document sees a key repeat that the game does not.
+				if (UI_Handle_SDL_Event(event)) break;
 
 				// Scroll Lock was a debugger's breakpoint key and types nothing. A key SDL
 				// repeats while held is taken only once, on its first press.
@@ -743,9 +772,26 @@ void Host_Pump_Events(void)
 				}
 				break;
 
+			case SDL_EVENT_TEXT_INPUT:
+				if (event.text.windowID != own_window) break;
+
+				UI_Handle_SDL_Event(event);
+				break;
+
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 			case SDL_EVENT_MOUSE_BUTTON_UP: {
 				if (event.button.windowID != own_window) break;
+
+				Point2D point((int)event.button.x, (int)event.button.y);
+				Window_Point_To_Game(point);
+
+				SDL_Event ui_event = event;
+				ui_event.button.x = (float)point.X;
+				ui_event.button.y = (float)point.Y;
+
+				// Before the game's own handling, so a click a document took never enters
+				// the keyboard buffer.
+				if (UI_Handle_SDL_Event(ui_event)) break;
 
 				unsigned short vk = VK_NONE;
 				switch (event.button.button) {
@@ -755,9 +801,6 @@ void Host_Pump_Events(void)
 				}
 
 				if (vk != VK_NONE) {
-					Point2D point((int)event.button.x, (int)event.button.y);
-					Window_Point_To_Game(point);
-
 					if (event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
 						Game_Window_Mouse_Button(vk, point, true);
 					} else if (event.button.clicks >= 2) {
@@ -771,6 +814,10 @@ void Host_Pump_Events(void)
 
 			case SDL_EVENT_MOUSE_WHEEL:
 				if (event.wheel.windowID != own_window) break;
+
+				// A wheel event carries a position nothing reads, so it is not taken into
+				// the frame the way a click's is.
+				if (UI_Handle_SDL_Event(event)) break;
 
 				Game_Window_On_Mouse_Wheel(event.wheel.y > 0.0f ? 120 : -120);
 				break;

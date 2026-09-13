@@ -262,7 +262,7 @@ void Init_Search_Folders(char const * list)
 
 void Init_Executable_Folder(char const * folder)
 {
-	std::string const path = Executable_Directory() + folder;
+	std::string const path = Terminate_Path(Executable_Directory() + folder);
 
 	if (Is_Directory(path) && !Is_Registered(path)) {
 		CDFileClass::Add_Search_Drive(path.c_str());

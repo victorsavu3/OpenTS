@@ -34,6 +34,7 @@
 #include "vidscale.h"
 #include "video.h"
 #include "win.h"
+#include "wincursor.h"
 
 #include <SDL3/SDL.h>
 
@@ -657,6 +658,13 @@ HostMessageBoxAnswer Host_Message_Box(char const * caption, char const * text, u
 void Host_Pump_Events(void)
 {
 	if (_Window == nullptr) return;
+
+	// SDL has no WM_SETCURSOR query to answer, so the game's cursor is reasserted here
+	// instead: whatever a document last chose if it still owns the pointer, the host's own
+	// arrow otherwise, the same choice Win32's WM_SETCURSOR handler makes.
+	if (!Win_Cursor_Handle_Set_Cursor()) {
+		Host_Set_Cursor(nullptr);
+	}
 
 	// Every case below reads a window-scoped event, and the Win32 host checks its own
 	// equivalent (hwnd == MainWindow) before touching GameInFocus; an event meant for some

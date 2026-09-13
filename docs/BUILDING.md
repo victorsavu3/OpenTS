@@ -228,7 +228,7 @@ Mesa's `libEGL_mesa`, in a Wayland probe unrelated to this target's own host
 code; that is a limitation of that software-rendering environment, not
 evidence about a real display.
 
-Three runtime issues turned up under real use and are fixed:
+Four runtime issues turned up under real use and are fixed:
 
 - SDL installs its own `SIGINT`/`SIGTERM` handlers by default and turns
   either into an `SDL_EVENT_QUIT` the application must answer itself; an
@@ -253,6 +253,15 @@ Three runtime issues turned up under real use and are fixed:
   guaranteed-success contract turned the miss into a zero-length read
   instead of a reported failure. Fixed by terminating that path the same
   way `Init_Search_Folders` already did for its own.
+- The sidebar credits readout showed an implausible number once a campaign
+  mission actually started: `CreditClass::Graphic_Logic` printed the `int
+  Current` counter through a `"%ld"` format, so `vsnprintf` read it back with
+  `va_arg(ap, long)`. Win32 `x86` is ILP32, where `int` and `long` are both
+  four bytes and the mismatch is silently harmless; this target is LP64,
+  where only the low half of the eight-byte slot holds a valid value and the
+  upper half is whatever garbage the argument-passing register or stack slot
+  already held. Fixed in `code/credits.cpp` by matching the format to the
+  argument's actual type.
 
 ### Tests
 

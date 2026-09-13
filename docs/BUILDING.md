@@ -228,7 +228,7 @@ Mesa's `libEGL_mesa`, in a Wayland probe unrelated to this target's own host
 code; that is a limitation of that software-rendering environment, not
 evidence about a real display.
 
-Two runtime issues turned up under real use and are fixed in `code/hostwindow_sdl.cpp`:
+Three runtime issues turned up under real use and are fixed:
 
 - SDL installs its own `SIGINT`/`SIGTERM` handlers by default and turns
   either into an `SDL_EVENT_QUIT` the application must answer itself; an
@@ -243,6 +243,16 @@ Two runtime issues turned up under real use and are fixed in `code/hostwindow_sd
   clears the equivalent state there. Not an SDL or Wayland rendering bug, as
   an earlier reading of this same symptom concluded. `Host_Pump_Events` now
   answers that query itself once per pump, through `Win_Cursor_Handle_Set_Cursor`.
+- Every RmlUi screen sourced from the Linux target's own `ui/` folder loaded
+  with no visible content: `Choose_Campaign` and the options screen opened
+  and took clicks and keys correctly, but rendered nothing, the same way a
+  bundled font silently fell back to none of the faces this target ships.
+  `code/gamedirs.cpp`'s `Init_Executable_Folder` registered that folder's
+  search path with no separator before the filename the search chain
+  appends next, so every lookup through it missed; `CCFileClass::Open`'s
+  guaranteed-success contract turned the miss into a zero-length read
+  instead of a reported failure. Fixed by terminating that path the same
+  way `Init_Search_Folders` already did for its own.
 
 ### Tests
 

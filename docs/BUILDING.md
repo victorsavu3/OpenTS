@@ -228,7 +228,7 @@ Mesa's `libEGL_mesa`, in a Wayland probe unrelated to this target's own host
 code; that is a limitation of that software-rendering environment, not
 evidence about a real display.
 
-Five runtime issues turned up under real use and are fixed:
+Six runtime issues turned up under real use and are fixed:
 
 - SDL installs its own `SIGINT`/`SIGTERM` handlers by default and turns
   either into an `SDL_EVENT_QUIT` the application must answer itself; an
@@ -268,6 +268,17 @@ Five runtime issues turned up under real use and are fixed:
   upper half is whatever garbage the argument-passing register or stack slot
   already held. Fixed in `code/credits.cpp` by matching the format to the
   argument's actual type.
+- The game's own cursor artwork rendered with red and blue swapped once
+  visible again (GDI's green showing as purple, for example), on a real
+  desktop with a real install. `wincursor.cpp` packs the cursor's pixels as
+  literal blue, green, red, alpha bytes, matching what Win32's
+  `CreateDIBSection` copies verbatim, but `Host_Create_Cursor` handed that
+  buffer to `SDL_CreateSurfaceFrom` tagged `SDL_PIXELFORMAT_ARGB32`. That
+  name is one of SDL3's byte-order aliases, not a spelling of the packed
+  `ARGB8888` format: on a little-endian host it resolves to
+  `SDL_PIXELFORMAT_BGRA8888`, which expects literal alpha, red, green, blue
+  bytes instead. Fixed by tagging the surface `SDL_PIXELFORMAT_BGRA32`,
+  SDL3's name for the byte order the buffer is actually in.
 
 ### Tests
 

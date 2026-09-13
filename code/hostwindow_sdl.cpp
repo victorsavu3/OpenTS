@@ -325,7 +325,11 @@ HostCursor * Host_Create_Cursor(std::uint32_t const * pixels, int width, int hei
 		return(nullptr);
 	}
 
-	SDL_Surface * surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_ARGB32,
+	// wincursor.cpp packs blue in the lowest byte and alpha in the highest, the byte order
+	// SDL names BGRA32. ARGB32 names a different byte order that only happens to share
+	// ARGB8888's packed-int spelling on a big-endian host; on this little-endian one it
+	// resolves to BGRA8888, which reads the buffer with red and blue swapped.
+	SDL_Surface * surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_BGRA32,
 		(void *)pixels, width * (int)sizeof(std::uint32_t));
 	if (surface == nullptr) {
 		DebugString("SDL: SDL_CreateSurfaceFrom failed: %s\n", SDL_GetError());

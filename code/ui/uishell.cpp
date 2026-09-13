@@ -154,14 +154,23 @@ static void Apply_Frame_Geometry(void)
 }
 
 
-// Client pixels reach a document relative to the frame's destination, and are never divided
-// by the density ratio: the context works in physical pixels.
+// Every caller hands this a position already run through Window_Point_To_Game, which is the
+// frame's own letterbox offset removed and the result scaled to the game's logical
+// resolution, not the window's raw client pixels; the context instead works in the frame's
+// destination pixels, at the game's aspect ratio but not always its pixel size (the density
+// independent pixel ratio is what lets a document's own dp units stay crisp there), so a
+// position must be scaled again to reach it.
 static bool Client_To_Context(int clientx, int clienty, int * contextx, int * contexty)
 {
 	VideoScaleInfo const & scale = Video_Get_Scale_Info();
 
-	int x = clientx - scale.DestX;
-	int y = clienty - scale.DestY;
+	int x = clientx;
+	int y = clienty;
+
+	if (scale.GameWidth > 0 && scale.GameHeight > 0) {
+		x = (int)((long long)clientx * scale.DestWidth / scale.GameWidth);
+		y = (int)((long long)clienty * scale.DestHeight / scale.GameHeight);
+	}
 
 	*contextx = x;
 	*contexty = y;

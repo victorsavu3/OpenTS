@@ -30,6 +30,7 @@
 #include "nativewindow.hh"
 #include "queue.h"
 #include "session.h"
+#include "ui/uisdl.h"
 #include "vidscale.h"
 #include "video.h"
 #include "win.h"
@@ -175,25 +176,6 @@ SDL_Scancode VK_To_Scancode(unsigned short key)
 }
 
 
-unsigned short Scancode_To_VK(SDL_Scancode code)
-{
-	if (code >= SDL_SCANCODE_A && code <= SDL_SCANCODE_Z) return((unsigned short)(VK_A + (code - SDL_SCANCODE_A)));
-
-	for (KeyMapEntry const & entry : _KeyMap) {
-		if (entry.Scancode == code) return(entry.Key);
-	}
-
-	// The generic Shift/Control/Alt VK codes stand for either side of the keyboard; only
-	// their left half is in the table above.
-	switch (code) {
-		case SDL_SCANCODE_RSHIFT:	return(VK_SHIFT);
-		case SDL_SCANCODE_RCTRL:	return(VK_CONTROL);
-		case SDL_SCANCODE_RALT:		return(VK_MENU);
-		default:					return(VK_NONE);
-	}
-}
-
-
 // Every SDL call in this file that answers with a bool or a null on failure is checked and
 // logged here rather than silently discarded, so a host-side failure shows up in the debug
 // log instead of only as a missing cursor, an unheld focus request, or the like.
@@ -239,6 +221,27 @@ void Quit_Application(void)
 }
 
 }	// namespace
+
+
+// Shared with code/ui/uisdl.cpp, which needs the same VK_ code this file already reads key
+// state and key characters through; the UI shell's own key identity is derived from it too.
+unsigned short SDL_Scancode_To_VK(SDL_Scancode code)
+{
+	if (code >= SDL_SCANCODE_A && code <= SDL_SCANCODE_Z) return((unsigned short)(VK_A + (code - SDL_SCANCODE_A)));
+
+	for (KeyMapEntry const & entry : _KeyMap) {
+		if (entry.Scancode == code) return(entry.Key);
+	}
+
+	// The generic Shift/Control/Alt VK codes stand for either side of the keyboard; only
+	// their left half is in the table above.
+	switch (code) {
+		case SDL_SCANCODE_RSHIFT:	return(VK_SHIFT);
+		case SDL_SCANCODE_RCTRL:	return(VK_CONTROL);
+		case SDL_SCANCODE_RALT:		return(VK_MENU);
+		default:					return(VK_NONE);
+	}
+}
 
 
 Point2D Host_Pointer_Position(void)
@@ -733,7 +736,7 @@ void Host_Pump_Events(void)
 					break;
 				}
 				if (Keyboard != nullptr) {
-					unsigned short const vk = Scancode_To_VK(event.key.scancode);
+					unsigned short const vk = SDL_Scancode_To_VK(event.key.scancode);
 					if (vk != VK_NONE) {
 						Keyboard->Post_Key_Event(vk, event.type == SDL_EVENT_KEY_UP);
 					}

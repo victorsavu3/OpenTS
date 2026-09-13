@@ -237,14 +237,12 @@ Two runtime issues turned up under real use and are fixed in `code/hostwindow_sd
   running game resigns through `Queue_Exit`, and everywhere else the process
   exits directly, since nothing above `Host_Pump_Events` polls
   `Has_Main_Window` to notice the window is already gone.
-- A custom pointer image built through `Host_Create_Cursor` and applied
-  through `Host_Set_Cursor` (`SDL_CreateColorCursor` and `SDL_SetCursor`)
-  never becomes visible under Wayland, verified against a real `wl_seat` and
-  genuine pointer-enter events, with every SDL call involved reporting
-  success; an `SDL_SYSTEM_CURSOR_*` shape shown the same way renders
-  correctly. This is a known class of upstream SDL3-on-Wayland limitation
-  with client-supplied cursor surfaces, not a call this host gets wrong, and
-  it is unfixed: the game's own pointer is not visible there today.
+- The pointer went invisible once the game released it and never came back:
+  `Host_Hide_Cursor` sets `_ExplicitlyHidden`, and nothing cleared it again,
+  because no SDL event corresponds to Win32's `WM_SETCURSOR`, the query that
+  clears the equivalent state there. Not an SDL or Wayland rendering bug, as
+  an earlier reading of this same symptom concluded. `Host_Pump_Events` now
+  answers that query itself once per pump, through `Win_Cursor_Handle_Set_Cursor`.
 
 ### Tests
 

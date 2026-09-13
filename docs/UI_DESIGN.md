@@ -485,9 +485,17 @@ Three spaces exist and the shell owns every conversion between them:
 | Context dimensions | `DestWidth` by `DestHeight` from `VideoScaleInfo`, physical pixels. |
 | Document origin | `DestX`, `DestY` in the client area. |
 | Density-independent pixel ratio | `min(ScaleX, ScaleY)`; one authored `dp` is one game logical unit. |
-| Pointer input to the overlay | Client pixels minus the destination origin; never divided by the ratio. |
+| Pointer input to the overlay | Game logical coordinates scaled up by `DestWidth/GameWidth` and `DestHeight/GameHeight`; no origin subtraction, since the game conversion already removed it. |
 | Pointer input to the game | `((x - DestX) / ScaleX, (y - DestY) / ScaleY)`, only for consumers that are eligible. |
 | Wheel position | Arrives in screen space; converted to client space once. |
+
+`code/hostwindow_win32.cpp` and `code/hostwindow_sdl.cpp` both convert a position with
+`Window_Point_To_Game` before it reaches either consumer, so what the shell's
+`Client_To_Context` receives is already in game logical coordinates, not the native client
+pixels this section otherwise assumes; it scales that back up into context space rather than
+receiving a separate, unconverted position. A host that fed the shell true native client
+pixels would only need the origin subtracted, as this table implied until the scaling was
+added.
 
 A document authored at a legacy dialog's logical size therefore appears at
 the same on-screen size while text is rasterized at physical resolution. The

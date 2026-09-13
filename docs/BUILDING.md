@@ -228,7 +228,7 @@ Mesa's `libEGL_mesa`, in a Wayland probe unrelated to this target's own host
 code; that is a limitation of that software-rendering environment, not
 evidence about a real display.
 
-Three runtime issues turned up under real use and are fixed:
+Four runtime issues turned up under real use and are fixed:
 
 - SDL installs its own `SIGINT`/`SIGTERM` handlers by default and turns
   either into an `SDL_EVENT_QUIT` the application must answer itself; an
@@ -253,6 +253,12 @@ Three runtime issues turned up under real use and are fixed:
   guaranteed-success contract turned the miss into a zero-length read
   instead of a reported failure. Fixed by terminating that path the same
   way `Init_Search_Folders` already did for its own.
+- A click on a small RmlUi control routinely missed whenever the frame was
+  not shown at the game's native resolution (a fixed Xvfb run and a real
+  desktop scaled the same way): `Choose_Campaign`'s OK button visibly took
+  the press and release, but never reached its handler. This is not Linux
+  specific; [UI system design](UI_DESIGN.md#coordinates) records the actual
+  cause, in the shell's shared `code/ui/uishell.cpp`, and the fix.
 
 ### Tests
 

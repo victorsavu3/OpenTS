@@ -130,6 +130,8 @@ OptionsClass::OptionsClass(void) :
 	SimulateWhileUnfocused(false),
 	TextBackgroundColor(12),
 	AutoSaveInterval(10800),
+	CampaignAutosaveOnMissionStart(true),
+	CampaignAutosaveBeforeVictory(true),
 	ScreenWidth(-1),
 	ScreenHeight(-1),
 	ScrollMethod(0),
@@ -419,6 +421,12 @@ void OptionsClass::Load_Settings(void)
 	AutoSaveInterval = ConfigINI.Get_Int("Options", "AutoSaveInterval", AutoSaveInterval);
 	DebugString("AutoSaveInterval = %d\n", AutoSaveInterval);
 
+	CampaignAutosaveOnMissionStart = ConfigINI.Get_Bool("Options", "CampaignAutosaveOnMissionStart", CampaignAutosaveOnMissionStart);
+	DebugString("CampaignAutosaveOnMissionStart is %s\n", CampaignAutosaveOnMissionStart == true ? "ON" : "OFF");
+
+	CampaignAutosaveBeforeVictory = ConfigINI.Get_Bool("Options", "CampaignAutosaveBeforeVictory", CampaignAutosaveBeforeVictory);
+	DebugString("CampaignAutosaveBeforeVictory is %s\n", CampaignAutosaveBeforeVictory == true ? "ON" : "OFF");
+
 	ScreenWidth = ConfigINI.Get_Int("Video", "ScreenWidth", ScreenWidth);
 	ScreenHeight = ConfigINI.Get_Int("Video", "ScreenHeight", ScreenHeight);
 	DebugString("Resolution = %d X %d\n", ScreenWidth, ScreenHeight);
@@ -493,6 +501,8 @@ void OptionsClass::Save_Settings (void)
 	ConfigINI.Put_Bool("Options", "SimulateWhileUnfocused", SimulateWhileUnfocused);
 	ConfigINI.Put_Int("Options", "TextBackgroundColor", TextBackgroundColor);
 	ConfigINI.Put_Int("Options", "AutoSaveInterval", AutoSaveInterval);
+	ConfigINI.Put_Bool("Options", "CampaignAutosaveOnMissionStart", CampaignAutosaveOnMissionStart);
+	ConfigINI.Put_Bool("Options", "CampaignAutosaveBeforeVictory", CampaignAutosaveBeforeVictory);
 	ConfigINI.Put_Int("Video", "ScreenWidth", ScreenWidth);
 	ConfigINI.Put_Int("Video", "ScreenHeight", ScreenHeight);
 	ConfigINI.Put_Bool("Video", "StretchMovies", StretchMovies);

@@ -620,6 +620,7 @@ void Do_Lose(void);
 void Do_Win(void);
 void Do_Restart(void);
 void Do_Abort(void);
+void Choose_Next_Mission_And_Advance(void);
 void Fill_In_Data(void);
 bool Restate_Mission(char const * name, int button1, int button2);
 
@@ -634,3 +635,6 @@ void Toggle_Display_Mode(bool ingame);
 
 extern ScenarioClass * Scen;
 extern unsigned int ScenarioCRC;
+
+// Set on a save that should open the map selection screen when loaded.
+extern bool PendingMapSelection;

@@ -1184,6 +1184,16 @@ bool Load_Game(const char *file_name)
 	TiberiumClass::Init_Tiberium_Growth_System();
 	TiberiumClass::Init_Tiberium_Spread_System();
 	Map.Complete_Radar_Refresh();
+
+	// This save carries the map selection screen as the point to resume at.
+	if (PendingMapSelection) {
+		PendingMapSelection = false;
+		SaveManager.Autosave.Schedule(Frame);
+		DebugString("LOADING GAME [%s] - Complete (resuming mission selection)\n\n", file_name);
+		Choose_Next_Mission_And_Advance();
+		return(true);
+	}
+
 	ScenarioActive = true;
 	TacticalActive = true;
 	Sync_Recorder_Arm();
@@ -1250,6 +1260,8 @@ static void Serialize_Misc_Values(SaveStreamClass & stream)
 
 	// The scenario's own tutorial lines travel here, since a load never re-reads the map.
 	stream.Serialize(TutorialText);
+
+	stream.Serialize(PendingMapSelection);
 
 	// Placed sounds and the sounds attached to objects come back on the next
 	// sound tick; the playing sounds themselves are not saved.

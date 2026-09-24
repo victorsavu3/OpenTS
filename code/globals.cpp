@@ -269,6 +269,8 @@ bool PlayerRestarts;
 */
 bool PlayerAborts;
 
+bool PendingMapSelection = false;
+
 
 /***************************************************************************
 **	This is a running accumulation of the number of ticks that were unused.

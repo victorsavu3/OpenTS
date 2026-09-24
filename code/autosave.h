@@ -61,6 +61,14 @@ class AutosaveClass
 // The file a quick save of one kind of game is written under and read back from.
 std::string Quick_Save_File_Name(AutosaveClass::KindType kind);
 
+// The file a mission's start-of-mission checkpoint is written under, keyed by scenario so a
+// replay or restart overwrites the same file rather than adding another.
+std::string Mission_Start_Save_File_Name(char const * scenario_name);
+
+// The file a mission's pre-map-selection checkpoint is written under, keyed by scenario the
+// same way.
+std::string Pre_Map_Select_Save_File_Name(char const * scenario_name);
+
 // Multiplayer saves are numbered from zero in the pattern the client lists, a thousand at most.
 constexpr int MULTIPLAYER_SAVE_SLOTS = 1000;
 std::string Multiplayer_Save_File_Name(int slot);

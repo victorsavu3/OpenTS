@@ -192,6 +192,7 @@ static Cell const Clip_Move(Cell const & cell, FacingType facing, int dist);
 static void Multiplayer_Last_Minute_Fixups(bool official = true);
 static char const * Pick_Load_Background_Name(Point2D & text_pos);
 static int Load_Scenario_File(CCINIClass & ini, char const * name, bool withdigest);
+static void Advance_To_Next_Scenario(void);
 
 
 /***********************************************************************************************
@@ -442,6 +443,14 @@ bool Start_Scenario(char const * name, bool briefing, CampaignType campaign)
 	SaveManager.Autosave.Schedule(Frame);
 
 	if (Session.Type == GAME_NORMAL) {
+		if (Options.CampaignAutosaveOnMissionStart) {
+			char save_descr[512];
+			snprintf(save_descr, sizeof(save_descr), Fetch_String(TXT_MISSION_START_AUTOSAVE_DESCRIPTION),
+				Scen->Description);
+			SaveManager.Request_Save_Game(Mission_Start_Save_File_Name(Scen->ScenarioName).c_str(), save_descr, true,
+				SaveManagerClass::NoticeType::None);
+		}
+
 		/*
 		 * A mission is named by how hard it is rather than by the slot the computer plays at,
 		 * and the two run opposite ways: the computer on its easiest table is the hardest game.
@@ -1291,6 +1300,16 @@ void Do_Win(void)
 			}
 #endif
 		} else {
+			if (Options.CampaignAutosaveBeforeVictory) {
+				char save_descr[512];
+				snprintf(save_descr, sizeof(save_descr), Fetch_String(TXT_PRE_MAP_SELECT_AUTOSAVE_DESCRIPTION),
+					Scen->Description);
+				PendingMapSelection = true;
+				SaveManager.Request_Save_Game(Pre_Map_Select_Save_File_Name(Scen->ScenarioName).c_str(), save_descr,
+					true, SaveManagerClass::NoticeType::None);
+				PendingMapSelection = false;
+			}
+
 			Show_Mouse();
 			Map_Selection(Scen);
 			Hide_Mouse();
@@ -1299,6 +1318,12 @@ void Do_Win(void)
 		Keyboard->Clear();
 	}
 
+	Advance_To_Next_Scenario();
+}
+
+
+static void Advance_To_Next_Scenario(void)
+{
 	Show_Mouse();
 
 	Environment.Store();
@@ -1312,6 +1337,20 @@ void Do_Win(void)
 	Environment.Restore();
 
 	Map.Render();
+}
+
+
+/// <summary>
+/// Runs the map selection screen and loads the mission it chose. Load_Game calls this in place
+/// of resuming ordinary gameplay for a save written at this same point in Do_Win.
+/// </summary>
+void Choose_Next_Mission_And_Advance(void)
+{
+	Show_Mouse();
+	Map_Selection(Scen);
+	Hide_Mouse();
+	Keyboard->Clear();
+	Advance_To_Next_Scenario();
 }
 
 

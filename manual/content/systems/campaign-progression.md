@@ -135,6 +135,8 @@ The carried amount is not used up. Each replay or restart of the mission grants 
 
 By default, winning opens the map selection screen, showing the stages the current stage leads to. The player must click one of them; the screen offers no way to leave without choosing. The chosen stage's mission loads next.
 
+With [`CampaignAutosaveBeforeVictory=yes`](/keys/campaignautosavebeforevictory/), the game writes a save right before this screen appears. Loading that save reopens the screen, so a mission choice can be redone. [Save games](/formats/save-games/#mission-checkpoints) covers the save's name and description.
+
 With [`SkipMapSelect=yes`](/keys/skipmapselect/), the mission names its successor. The game takes [`NextScenario`](/keys/nextscenario/), or [`AltNextScenario`](/keys/altnextscenario/) when global flag `1` is set. It then compares that name, ignoring case, with the `Scenario=` value of each stage the current stage leads to, and takes the first match. A name that none of those stages lists is not loaded, even when a mission file of that name exists.
 
 ### When the choice fails

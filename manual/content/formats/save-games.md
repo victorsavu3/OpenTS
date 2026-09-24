@@ -21,6 +21,7 @@ source_files:
   - code/savefile.cpp
   - code/saveload.cpp
   - code/savemgr.cpp
+  - code/scenario.cpp
   - code/savestream.cpp
   - code/savever.cpp
   - code/scenfile.cpp
@@ -56,6 +57,16 @@ The game also saves on its own at a fixed interval of frames. A game started fro
 A campaign writes `AUTOSAVE1.SAV` through `AUTOSAVE5.SAV` in turn and then starts over, and a skirmish writes `AUTOSAVE_SKIRMISH1.SAV` through `AUTOSAVE_SKIRMISH5.SAV` the same way. The two rings turn independently. Each is described as `Auto-Save`, its slot number and the scenario's description, so a listing tells it apart from a save the player named. Every save records the slot that follows the last one written, in both rings, and a loaded game continues from what its save records. The rings keep their positions for as long as the game runs, so a new game started from the menu carries on where the last automatic save left off rather than overwriting it. A client-launched game starts where its launch file says.
 
 Timed saves in a game against other machines run only when a launch file set the interval. Every machine must write the same frame, and a match arranged from the menu leaves each machine with settings of its own. Each machine then writes the next [numbered save](#numbered-multiplayer-saves), described as `Multiplayer Game (Auto-Save)`. It goes through the pending request, without the saving box a manual save shows. Once multiplayer saving is disabled for the match, automatic saves stop with it.
+
+## Mission checkpoints
+
+A campaign mission writes two further saves of its own, independent of the rotating automatic saves above: neither counts against the ring, and neither is pruned by it.
+
+With [`CampaignAutosaveOnMissionStart=yes`](/keys/campaignautosaveonmissionstart/), a mission writes `AUTOSAVE_START_<scenario>.SAV` as soon as it starts, described `Start of mission: <name>` in the load dialog. `<scenario>` is the mission's own file name, so restarting or replaying the mission overwrites this same file rather than adding another.
+
+With [`CampaignAutosaveBeforeVictory=yes`](/keys/campaignautosavebeforevictory/), a won mission writes `AUTOSAVE_VICTORY_<scenario>.SAV` right before the map selection screen, described `Before choosing the next mission: <name>`. Loading this save skips the win movie and score screen it was written after and goes straight to map selection, so a different next mission can be chosen than was chosen the first time. A mission that skips map selection with [`SkipMapSelect=yes`](/keys/skipmapselect/) writes no such save, since there is no choice to redo. Winning the mission again overwrites the same file.
+
+Both keys apply only to a single-player campaign. Skirmish and multiplayer games write neither save.
 
 ## Quick saves
 

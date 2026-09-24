@@ -88,6 +88,18 @@ std::string Quick_Save_File_Name(AutosaveClass::KindType kind)
 }
 
 
+std::string Mission_Start_Save_File_Name(char const * scenario_name)
+{
+	return(std::string("AUTOSAVE_START_") + scenario_name + ".SAV");
+}
+
+
+std::string Pre_Map_Select_Save_File_Name(char const * scenario_name)
+{
+	return(std::string("AUTOSAVE_VICTORY_") + scenario_name + ".SAV");
+}
+
+
 std::string Multiplayer_Save_File_Name(int slot)
 {
 	char name[24];

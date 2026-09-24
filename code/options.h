@@ -151,6 +151,19 @@ class OptionsClass {
 		int AutoSaveInterval;
 
 		/*
+		 * If a campaign mission saves automatically as soon as it starts, then this flag will
+		 * be true.
+		 */
+		bool CampaignAutosaveOnMissionStart;
+
+		/*
+		 * If a campaign mission saves automatically right before the map selection screen,
+		 * so a different next mission can be chosen after loading it, then this flag will be
+		 * true.
+		 */
+		bool CampaignAutosaveBeforeVictory;
+
+		/*
 		 * These are the dimensions of the game screen, expressed in pixels. The tactical
 		 * view, the sidebar and the tabs are all laid out against them.
 		 */

@@ -4289,6 +4289,42 @@ CameraRange:
       source: code/rules.cpp
       guard: null
     level: RulesClass
+CampaignAutosaveBeforeVictory:
+  key: CampaignAutosaveBeforeVictory
+  scopes:
+  - applies_to:
+    - client settings
+    file: sun.ini
+    section:
+      kind: literal
+      name: Options
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'yes'
+      declared_in: OptionsClass
+      member: CampaignAutosaveBeforeVictory
+      source: code/options.cpp
+      guard: null
+    level: OptionsClass
+CampaignAutosaveOnMissionStart:
+  key: CampaignAutosaveOnMissionStart
+  scopes:
+  - applies_to:
+    - client settings
+    file: sun.ini
+    section:
+      kind: literal
+      name: Options
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'yes'
+      declared_in: OptionsClass
+      member: CampaignAutosaveOnMissionStart
+      source: code/options.cpp
+      guard: null
+    level: OptionsClass
 Capturable:
   key: Capturable
   scopes:

@@ -321,6 +321,7 @@ static int Build_Arguments(char const * path_to_exe, char ** & argv)
 	pointers.clear();
 	arguments.push_back(path_to_exe);
 
+#ifdef _WIN32
 	int wide_count = 0;
 	LPWSTR * wide_argv = CommandLineToArgvW(GetCommandLineW(), &wide_count);
 
@@ -337,6 +338,15 @@ static int Build_Arguments(char const * path_to_exe, char ** & argv)
 
 		LocalFree(wide_argv);
 	}
+#else
+	// main() already received real, shell-split arguments; index zero is that process's own
+	// argv[0], which the caller has already established via path_to_exe.
+	int real_count = 0;
+	char * const * real_argv = Program_Arguments(real_count);
+	for (int index = 1; index < real_count; index++) {
+		arguments.push_back(real_argv[index]);
+	}
+#endif
 
 	for (std::string & argument : arguments) {
 		pointers.push_back(argument.data());
@@ -354,6 +364,11 @@ static int Build_Arguments(char const * path_to_exe, char ** & argv)
 /// <returns>bool; Were the mutexes claimed? False means another copy is running.</returns>
 static bool Claim_Single_Instance(void)
 {
+#ifndef _WIN32
+	// Neither the single-instance guard nor the legacy Renegade AutoPlay handshake below is
+	// ported; more than one copy of the game can run at once on this build.
+	return(true);
+#else
 	/*
 	 * Create a mutex with a unique name to TibSun in order to determine if
 	 * our app is already running.
@@ -425,6 +440,7 @@ static bool Claim_Single_Instance(void)
 	}
 
 	return(true);
+#endif
 }
 
 

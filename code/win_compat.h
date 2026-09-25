@@ -291,6 +291,10 @@ inline HDC GetDC(HWND) {return(NULL);}
 inline int ReleaseDC(HWND, HDC) {return(1);}
 
 HWND SetFocus(HWND window);
+BOOL PostMessage(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+
+// Nothing on this build runs a GetMessage loop that a WM_QUIT would stop.
+inline void PostQuitMessage(int) {}
 HWND SetCapture(HWND window);
 BOOL ReleaseCapture(void);
 HWND GetCapture(void);
@@ -449,6 +453,22 @@ inline void GetSystemTime(SYSTEMTIME * st)
 	FILETIME ft;
 	GetSystemTimeAsFileTime(&ft);
 	FileTimeToSystemTime(&ft, st);
+}
+
+inline void GetLocalTime(SYSTEMTIME * st)
+{
+	FILETIME ft;
+	FILETIME local;
+	GetSystemTimeAsFileTime(&ft);
+	FileTimeToLocalFileTime(&ft, &local);
+	FileTimeToSystemTime(&local, st);
+}
+
+// Logged for the out-of-sync report only; the x87 control-word format it names does not
+// carry over to this build's ABI, so the query side always reads zero.
+inline unsigned int _controlfp(unsigned int, unsigned int)
+{
+	return(0);
 }
 
 // Windows reports this in the process's local time zone; std::chrono's local_t makes that
@@ -877,6 +897,14 @@ inline BOOL DeleteFileA(char const * path)
 {
 	return(DeleteFile(path));
 }
+
+inline BOOL SetCurrentDirectory(char const * path)
+{
+	return(chdir(path) == 0 ? TRUE : FALSE);
+}
+
+// Language.dll never loads on this build, so nothing real is ever handed here to free.
+inline BOOL FreeLibrary(HMODULE) { return(TRUE); }
 
 // The classic BMP file layout; real Windows headers wrap these the same way so the
 // structures stay exactly 14 and 40 bytes with no compiler-dependent padding.

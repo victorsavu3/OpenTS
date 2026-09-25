@@ -25,6 +25,10 @@ bool Win_Window_Drawable_Size(HWND window, int & width, int & height);
 int Win_Window_Refresh_Rate(HWND window);
 #ifndef _WIN32
 void Win_Resize_And_Center_Window(HWND window, int width, int height);
+
+// The real argv main() received, so WinMain's own callers need no GetCommandLineW-style
+// reconstruction. count is the number of entries; argv[0] is the executable path.
+char * const * Program_Arguments(int & count);
 #endif
 
 void Load_Title_Screen(char const * name, Surface * surface, PaletteClass * palette);

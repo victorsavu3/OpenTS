@@ -72,6 +72,7 @@ namespace {
 /// <returns>The preferred base, or zero when the header could not be read.</returns>
 static uint32_t Sync_Preferred_Image_Base(void)
 {
+#ifdef _WIN32
 	char path[MAX_PATH];
 	if (GetModuleFileName(GetModuleHandle(nullptr), path, sizeof(path)) == 0) {
 		return(0);
@@ -103,6 +104,11 @@ static uint32_t Sync_Preferred_Image_Base(void)
 	CloseHandle(file);
 
 	return(base);
+#else
+	// There is no PE header to read a preferred base from; callers already treat zero as
+	// "unavailable."
+	return(0);
+#endif
 }
 
 
@@ -249,6 +255,7 @@ void Sync_Recorder_Arm(void)
 	ModuleBase = (uintptr_t)GetModuleHandle(nullptr);
 	ModuleSize = 0;
 	MapImageBase = 0;
+#ifdef _WIN32
 	if (ModuleBase != 0) {
 		IMAGE_DOS_HEADER const * dos = (IMAGE_DOS_HEADER const *)ModuleBase;
 		if (dos->e_magic == IMAGE_DOS_SIGNATURE) {
@@ -258,6 +265,7 @@ void Sync_Recorder_Arm(void)
 			}
 		}
 	}
+#endif
 
 	MapImageBase = Sync_Preferred_Image_Base();
 

@@ -17,8 +17,10 @@
 
 #include "_keyboar.h"
 #include "_map.h"
+#include "_tooltip.h"
 #include "_ui.h"
 #include "audio/audioengine.h"
+#include "cctooltip.h"
 #include "dbgprint.h"
 #include "except.h"
 #include "gamewindow.h"
@@ -50,6 +52,30 @@ HWND		UnusedWindow;
 
 HINSTANCE	ProgramInstance;
 bool _MouseCaptured;
+
+namespace {
+int ProgramArgc = 0;
+char ** ProgramArgv = nullptr;
+} // namespace
+
+
+char * const * Program_Arguments(int & count)
+{
+	count = ProgramArgc;
+	return(ProgramArgv);
+}
+
+
+int CALLBACK WinMain(HINSTANCE, HINSTANCE, char *, int);
+
+// WinMain never receives argc/argv on Windows either, so it always fetches them itself;
+// on Linux the ones main() already has are simply handed to it through Program_Arguments.
+int main(int argc, char ** argv)
+{
+	ProgramArgc = argc;
+	ProgramArgv = argv;
+	return(WinMain((HINSTANCE)1, nullptr, "", SW_NORMAL));
+}
 
 extern bool InMovie;
 extern void VQA_PauseAudio(void);
@@ -190,6 +216,20 @@ void Dispatch_Message(UINT message, WPARAM wParam, LPARAM lParam)
 				if (GameActive && PlayerPtr != NULL && !Session.Play) {
 					Queue_Exit();
 				}
+			}
+			return;
+
+		// The shutdown sequence posts this once it has decided to quit; startup.cpp's own
+		// message loop waits on ReadyToQuit reaching 2 before it returns.
+		case WM_DESTROY:
+			if (ToolTips != NULL) {
+				delete ToolTips;
+				ToolTips = NULL;
+			}
+			MainWindow = NULL;
+
+			if (ReadyToQuit == 1) {
+				ReadyToQuit = 2;
 			}
 			return;
 	}
@@ -476,6 +516,19 @@ HWND SetFocus(HWND window)
 	}
 
 	return(NULL);
+}
+
+
+// There is no separate OS message queue to post into, so the message reaches its handlers
+// immediately rather than on the next pump.
+BOOL PostMessage(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
+{
+	if (window != MainWindow) {
+		return(FALSE);
+	}
+
+	Dispatch_Message(message, wparam, lparam);
+	return(TRUE);
 }
 
 

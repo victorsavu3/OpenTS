@@ -175,61 +175,6 @@ void OwnerDraw::Prepare_Resources(void)
 }
 
 
-int Build_Hotkey_String(KeyNumType key, char * buffer)
-{
-	char key_name[32];
-	unsigned char modifier = HIBYTE(key);
-
-	buffer[0] = '\0';
-
-	UINT lparam;
-
-	if ((modifier & (WWKEY_ALT_BIT >> 8)) != 0) {
-		lparam = MapVirtualKey(VK_MENU, 0) ;
-		lparam = (lparam << 16);
-		lparam |= (1 << 0);
-		lparam |= (1 << 25);
-		GetKeyNameText(lparam, key_name, sizeof(key_name));
-		strcat(buffer, key_name);
-		strcat(buffer, "+");
-	}
-
-	if ((modifier & (WWKEY_CTRL_BIT >> 8)) != 0) {
-		lparam = MapVirtualKey(VK_CONTROL, 0);
-		lparam = (lparam << 16);
-		lparam |= (1 << 0);
-		lparam |= (1 << 25);
-		GetKeyNameText(lparam, key_name, sizeof(key_name));
-		strcat(buffer, key_name);
-		strcat(buffer, "+");
-	}
-
-	if ((modifier & (WWKEY_SHIFT_BIT >> 8)) != 0) {
-		lparam = MapVirtualKey(VK_SHIFT, 0);
-		lparam = (lparam << 16);
-		lparam |= (1 << 0);
-		lparam |= (1 << 25);
-		GetKeyNameText(lparam, key_name, sizeof(key_name));
-		strcat(buffer, key_name);
-		strcat(buffer, "+");
-	}
-
-	lparam = MapVirtualKey(key & 0xFF, 0);
-	lparam = (lparam << 16);
-	lparam |= (1 << 0);
-	lparam |= (1 << 25);
-
-	if ((modifier & (WWKEY_RLS_BIT >> 8)) != 0) {
-		lparam |= (1 << 24);
-	}
-
-	GetKeyNameText(lparam, key_name, sizeof(key_name));
-	strcat(buffer, key_name);
-
-	return(0);
-}
-
-
 int OD_Draw_Text_Remap(Surface & surface, const char * text, Rect const & rect, char const * name, COLORREF color, int flags, int char_spacing)
 {
 	int line_len = strlen(text);
@@ -714,6 +659,7 @@ HFONT WS_Get_Font(HDC hdc, const char * face_name, int decipt_width, int decipt_
 HFONT Ez_Create_Font (HDC hdc, const char * face_name, int decipt_width,
 					int decipt_height, int attributes)
 {
+#if defined(_WIN32)
 	HFONT		hFont ;
 	LOGFONT	lf ;
 	POINT		pt ;
@@ -760,6 +706,11 @@ HFONT Ez_Create_Font (HDC hdc, const char * face_name, int decipt_width,
 
 	RestoreDC (hdc, -1);
 	return(hFont);
+#else
+	// GDI logical fonts have no portable equivalent; WS_Get_Font never reaches here
+	// with a real device context off Windows.
+	return(NULL);
+#endif
 }
 
 
@@ -789,6 +740,7 @@ int OD_Draw_Text(COLORREF color, HFONT font, Rect const & rect, const char * tex
 		destsurf->Unlock();
 	}
 
+#if defined(_WIN32)
 	SIZE text_size;
 
 	HDC hDC = destsurf->GetDC();
@@ -827,6 +779,11 @@ int OD_Draw_Text(COLORREF color, HFONT font, Rect const & rect, const char * tex
 	} else {
 		text_size.cx = 0;
 	}
+#else
+	// GDI text metrics have no portable equivalent; destsurf->GetDC() never returns a
+	// real context off Windows, so this drew nothing there either.
+	struct { int cx = 0; } text_size;
+#endif
 
 	while (lock_count) {
 		destsurf->Lock();

@@ -43,8 +43,6 @@ int OD_Draw_Text_Remap(Surface & surface, const char * string, Rect const & rect
 int OD_Draw_Text(COLORREF color, HFONT font, Rect const & rect, const char * text, int len, int x_alignment, int y_alignment, Surface * surface);
 HFONT WS_Get_Font(HDC hdc, const char * face_name, int decipt_width, int decipt_height, int attributes);
 
-int Build_Hotkey_String(KeyNumType key, char * buffer);
-
 extern COLORREF ODColorText;
 extern COLORREF ODColorTextDim;
 extern COLORREF ODColorDisabled;

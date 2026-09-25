@@ -131,6 +131,7 @@ add_subdirectory(platformfile)
 add_subdirectory(save)
 add_subdirectory(png)
 add_subdirectory(houseset)
+add_subdirectory(keyname)
 add_subdirectory(uishell)
 add_subdirectory(uilogic)
 

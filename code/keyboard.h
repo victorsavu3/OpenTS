@@ -111,8 +111,8 @@ class WWKeyboardClass
 #define VK_RBUTTON	 0x02
 #define VK_CANCEL	 0x03
 #define VK_MBUTTON	 0x04
-#define VK_NONE_05	 0x05
-#define VK_NONE_06	 0x06
+#define VK_XBUTTON1	 0x05
+#define VK_XBUTTON2	 0x06
 #define VK_NONE_07	 0x07
 #define VK_BACK		 0x08
 #define VK_TAB		 0x09

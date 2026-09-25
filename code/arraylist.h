@@ -20,7 +20,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <math.h>
+#ifdef _WIN32
 #include <new.h>
+#endif
 
 
 template <class T>

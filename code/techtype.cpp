@@ -44,7 +44,9 @@
 #include "voc.hh"
 
 #include <algorithm>
+#ifdef _WIN32
 #include <new.h>
+#endif
 
 
 /***************************************************************************

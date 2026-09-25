@@ -4084,7 +4084,7 @@ BulletClass * TechnoClass::Fire_At(AbstractClass * target, int which)
 				if (planar < 0.05) {
 					planar = 0.05;
 				}
-				double angle = std::atan2f((double)abs_z - y, planar);
+				double angle = atan2f((double)abs_z - y, planar);
 				if (displacement.Z < 0) {
 					angle = -angle;
 				}

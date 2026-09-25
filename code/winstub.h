@@ -23,6 +23,9 @@ void Create_Main_Window ( HINSTANCE instance , int command_show , int width , in
 NativeWindow Win_Native_Window(HWND window);
 bool Win_Window_Drawable_Size(HWND window, int & width, int & height);
 int Win_Window_Refresh_Rate(HWND window);
+#ifndef _WIN32
+void Win_Resize_And_Center_Window(HWND window, int width, int height);
+#endif
 
 void Load_Title_Screen(char const * name, Surface * surface, PaletteClass * palette);
 

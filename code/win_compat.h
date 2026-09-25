@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <string>
 #include <sys/stat.h>
+#include <thread>
 
 using BYTE = std::uint8_t;
 using PBYTE = std::uint8_t *;
@@ -305,6 +306,15 @@ inline BOOL QueryPerformanceFrequency(LARGE_INTEGER * frequency)
 	frequency->QuadPart = 1000000000LL;
 	return(TRUE);
 }
+
+inline void Sleep(DWORD milliseconds)
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+}
+
+// Only Windows needs to ask for finer Sleep granularity; a POSIX sleep already has it.
+inline void timeBeginPeriod(UINT) {}
+inline void timeEndPeriod(UINT) {}
 
 // FILETIME's 100ns-tick, two-DWORD layout matches savefile.cpp's on-disk field.
 struct FILETIME
@@ -607,6 +617,42 @@ inline BOOL FindClose(HANDLE handle)
 inline BOOL DeleteFile(char const * path)
 {
 	return(std::remove(path) == 0 ? TRUE : FALSE);
+}
+
+inline BOOL CopyFile(char const * existing, char const * dest, BOOL fail_if_exists)
+{
+	if (fail_if_exists) {
+		struct stat info;
+		if (stat(dest, &info) == 0) {
+			return(FALSE);
+		}
+	}
+
+	std::FILE * in = std::fopen(existing, "rb");
+	if (in == nullptr) {
+		return(FALSE);
+	}
+
+	std::FILE * out = std::fopen(dest, "wb");
+	if (out == nullptr) {
+		std::fclose(in);
+		return(FALSE);
+	}
+
+	char buffer[65536];
+	std::size_t read_count;
+	bool ok = true;
+	while ((read_count = std::fread(buffer, 1, sizeof(buffer), in)) > 0) {
+		if (std::fwrite(buffer, 1, read_count, out) != read_count) {
+			ok = false;
+			break;
+		}
+	}
+	ok = ok && std::feof(in) != 0;
+
+	std::fclose(in);
+	std::fclose(out);
+	return(ok ? TRUE : FALSE);
 }
 
 // Emulates MSVC's __declspec(property(...)), which GCC and Clang do not support, by

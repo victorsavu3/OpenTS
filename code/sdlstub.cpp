@@ -430,6 +430,40 @@ int Win_Window_Refresh_Rate(HWND window)
 }
 
 
+void Win_Resize_And_Center_Window(HWND window, int width, int height)
+{
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window == nullptr) {
+		return;
+	}
+
+	int current_x = 0;
+	int current_y = 0;
+	int current_width = 0;
+	int current_height = 0;
+	SDL_GetWindowPosition(sdl_window, &current_x, &current_y);
+	SDL_GetWindowSize(sdl_window, &current_width, &current_height);
+
+	int x = current_x + ((current_width - width) / 2);
+	int y = current_y + ((current_height - height) / 2);
+
+	/*
+	 * Growing about the middle can push the window past the edges of the screen, and a
+	 * title bar above the top of it cannot be grabbed to bring the window back.
+	 */
+	SDL_Rect work{};
+	if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(sdl_window), &work)) {
+		if (x + width > work.x + work.w) x = work.x + work.w - width;
+		if (y + height > work.y + work.h) y = work.y + work.h - height;
+		if (x < work.x) x = work.x;
+		if (y < work.y) y = work.y;
+	}
+
+	SDL_SetWindowSize(sdl_window, width, height);
+	SDL_SetWindowPosition(sdl_window, x, y);
+}
+
+
 HWND SetFocus(HWND window)
 {
 	SDL_Window * sdl_window = Handle_Window(window);

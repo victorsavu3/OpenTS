@@ -35,6 +35,7 @@
 #include "ui/screens/display/uidisplay.h"
 #include "ui/screens/mainopt/uimainopt.h"
 #include "video.h"
+#include "winstub.h"
 #include "wwmouse.h"
 
 #include "color.hh"
@@ -151,6 +152,7 @@ bool Change_Display_Mode(int width, int height)
 	 * frame is scaled into them instead.
 	 */
 	if (WindowedMode && Options.WindowWidth <= 0 && Options.WindowHeight <= 0) {
+#ifdef _WIN32
 		RECT windowrect;
 		SetRect(&windowrect, 0, 0, width, height);
 		AdjustWindowRectEx(&windowrect, GetWindowLong(MainWindow, GWL_STYLE), FALSE, GetWindowLong(MainWindow, GWL_EXSTYLE));
@@ -181,6 +183,9 @@ bool Change_Display_Mode(int width, int height)
 		}
 
 		SetWindowPos(MainWindow, NULL, x, y, newwidth, newheight, SWP_NOZORDER);
+#else
+		Win_Resize_And_Center_Window(MainWindow, width, height);
+#endif
 	}
 
 	Rect temp = VisibleRect;

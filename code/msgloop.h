@@ -31,7 +31,5 @@
 
 #pragma once
 
-#include <windows.h>
-
 // Main message handler.
 void Windows_Message_Handler(void);

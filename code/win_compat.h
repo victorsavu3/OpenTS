@@ -283,8 +283,6 @@ inline BOOL IsWindowUnicode(HWND) { return(TRUE); }
 // SDL always hands text input as UTF-8, so the process codepage is always CP_UTF8 here.
 inline unsigned int GetACP(void) { return(CP_UTF8); }
 
-inline DWORD GetTickCount64(void) { return(timeGetTime()); }
-
 // No Windows installation directory exists to look a system font up in.
 inline unsigned int GetWindowsDirectoryA(char *, unsigned int) { return(0); }
 
@@ -383,6 +381,8 @@ inline DWORD timeGetTime(void)
 	auto const now = std::chrono::steady_clock::now().time_since_epoch();
 	return((DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
 }
+
+inline DWORD GetTickCount64(void) { return(timeGetTime()); }
 
 union LARGE_INTEGER
 {

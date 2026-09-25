@@ -21,6 +21,7 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
 #include <bx/allocator.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -102,7 +103,7 @@ class BackendCallback : public bgfx::CallbackI
 		{
 			char message[1024];
 			vsnprintf(message, sizeof(message), format, argList);
-			OutputDebugString(message);
+			DebugString("%s", message);
 		}
 
 		virtual void profilerBegin(const char *, uint32_t, const char *, uint16_t) override {}
@@ -120,6 +121,60 @@ class BackendCallback : public bgfx::CallbackI
 static BackendCallback _Callback;
 
 
+#if !defined(_WIN32)
+// The CRT's _aligned_realloc has no POSIX equivalent, and posix_memalign cannot report a
+// block's usable size back for a later realloc, so the size requested at allocation time is
+// stored just ahead of the aligned pointer that this allocator hands to bgfx.
+struct AlignedAllocationHeader
+{
+	void * Raw;
+	size_t Size;
+};
+
+static void * Aligned_Alloc(size_t size, size_t alignment)
+{
+	size_t const offset = sizeof(AlignedAllocationHeader) + alignment - 1;
+	void * raw = std::malloc(size + offset);
+	if (raw == NULL) {
+		return(NULL);
+	}
+
+	std::uintptr_t const aligned = ((std::uintptr_t)raw + offset) & ~(std::uintptr_t)(alignment - 1);
+	AlignedAllocationHeader * header = (AlignedAllocationHeader *)(aligned - sizeof(AlignedAllocationHeader));
+	header->Raw = raw;
+	header->Size = size;
+	return((void *)aligned);
+}
+
+static void Aligned_Free(void * ptr)
+{
+	if (ptr == NULL) {
+		return;
+	}
+
+	AlignedAllocationHeader * header = (AlignedAllocationHeader *)((std::uintptr_t)ptr - sizeof(AlignedAllocationHeader));
+	std::free(header->Raw);
+}
+
+static void * Aligned_Realloc(void * ptr, size_t size, size_t alignment)
+{
+	if (ptr == NULL) {
+		return(Aligned_Alloc(size, alignment));
+	}
+
+	AlignedAllocationHeader * old_header = (AlignedAllocationHeader *)((std::uintptr_t)ptr - sizeof(AlignedAllocationHeader));
+	void * new_ptr = Aligned_Alloc(size, alignment);
+	if (new_ptr == NULL) {
+		return(NULL);
+	}
+
+	std::memcpy(new_ptr, ptr, std::min(old_header->Size, size));
+	Aligned_Free(ptr);
+	return(new_ptr);
+}
+#endif  // !_WIN32
+
+
 // bgfx contains cache-line-aligned render records but requests their backing arrays with
 // the allocator's default alignment. The Win32 CRT only guarantees eight-byte alignment,
 // which is insufficient when clang-cl copies those records with aligned SSE instructions.
@@ -131,13 +186,21 @@ class BackendAllocator : public bx::AllocatorI
 		virtual void * realloc(void * ptr, size_t size, size_t alignment, const char *, uint32_t) override
 		{
 			if (size == 0) {
+#if defined(_WIN32)
 				_aligned_free(ptr);
+#else
+				Aligned_Free(ptr);
+#endif
 				return(NULL);
 			}
 
 			const size_t cachelinealignment = BX_CACHE_LINE_SIZE;
 			alignment = std::max(alignment, cachelinealignment);
+#if defined(_WIN32)
 			return(_aligned_realloc(ptr, size, alignment));
+#else
+			return(Aligned_Realloc(ptr, size, alignment));
+#endif
 		}
 };
 

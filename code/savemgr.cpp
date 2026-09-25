@@ -26,6 +26,7 @@
 #include "msgbox.h"
 #include "netdlg.h"
 #include "netglobal.h"
+#include "platform/file.h"
 #include "platform/wait.h"
 #include "rawfile.h"
 #include "rules.h"
@@ -325,7 +326,8 @@ int SaveManagerClass::Next_Multiplayer_Save_Slot(void)
 {
 	for (int slot = 0; slot < MULTIPLAYER_SAVE_SLOTS; slot++) {
 		std::string path = Saved_Game_Name(Multiplayer_Save_File_Name(slot).c_str());
-		if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+		PlatformFileInfoType info;
+		if (!Platform_File_Info(path.c_str(), info)) {
 			return(slot);
 		}
 	}
@@ -359,14 +361,14 @@ void SaveManagerClass::Multiplayer_Saves_Begin_Match(bool resumed)
 	int removed = 0;
 	for (int slot = 0; slot < MULTIPLAYER_SAVE_SLOTS; slot++) {
 		std::string path = Saved_Game_Name(Multiplayer_Save_File_Name(slot).c_str());
-		if (DeleteFileA(path.c_str())) {
+		if (Platform_Remove_File(path.c_str())) {
 			removed++;
 		}
 	}
 	if (removed > 0) {
 		DebugString("Removed %d multiplayer saves of a previous match\n", removed);
 	}
-	if (DeleteFileA(Saved_Game_Name("spawnSG.ini").c_str())) {
+	if (Platform_Remove_File(Saved_Game_Name("spawnSG.ini").c_str())) {
 		DebugString("Removed the launch-file copy of a previous match\n");
 	}
 

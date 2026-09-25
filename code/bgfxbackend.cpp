@@ -102,7 +102,11 @@ class BackendCallback : public bgfx::CallbackI
 		{
 			char message[1024];
 			vsnprintf(message, sizeof(message), format, argList);
+#ifdef _WIN32
 			OutputDebugString(message);
+#else
+			DebugString("%s", message);
+#endif
 		}
 
 		virtual void profilerBegin(const char *, uint32_t, const char *, uint16_t) override {}
@@ -130,6 +134,7 @@ class BackendAllocator : public bx::AllocatorI
 
 		virtual void * realloc(void * ptr, size_t size, size_t alignment, const char *, uint32_t) override
 		{
+#ifdef _WIN32
 			if (size == 0) {
 				_aligned_free(ptr);
 				return(NULL);
@@ -138,6 +143,27 @@ class BackendAllocator : public bx::AllocatorI
 			const size_t cachelinealignment = BX_CACHE_LINE_SIZE;
 			alignment = std::max(alignment, cachelinealignment);
 			return(_aligned_realloc(ptr, size, alignment));
+#else
+			if (size == 0) {
+				free(ptr);
+				return(NULL);
+			}
+
+			const size_t cachelinealignment = BX_CACHE_LINE_SIZE;
+			alignment = std::max(alignment, cachelinealignment);
+
+			// posix_memalign has no realloc counterpart, so this allocates fresh and copies
+			// what the old block actually holds (malloc_usable_size is a glibc extension).
+			void * newptr = nullptr;
+			if (posix_memalign(&newptr, alignment, size) != 0) {
+				return(NULL);
+			}
+			if (ptr != NULL) {
+				std::memcpy(newptr, ptr, std::min(malloc_usable_size(ptr), size));
+				free(ptr);
+			}
+			return(newptr);
+#endif
 		}
 };
 

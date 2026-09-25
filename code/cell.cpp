@@ -2667,7 +2667,7 @@ void CellClass::Draw_It(Point2D const & xdrawpoint, Rect const & cliprect, bool 
 		**	Redraw any smudge.
 		*/
 		if (Smudge != SMUDGE_NONE) {
-			SmudgeTypes[Smudge]->Draw_It(drawpoint + Point2D(ISO_TILE_PIXEL_W / 2, TacticalRect.Y) - cliprect.TopLeft, cliprect, SmudgeData, LEVEL_LEPTON_H * Height, CellID);
+			SmudgeTypes[Smudge]->Draw_It(drawpoint + Point2D(ISO_TILE_PIXEL_W / 2, TacticalRect.Y) - cliprect.Top_Left(), cliprect, SmudgeData, LEVEL_LEPTON_H * Height, CellID);
 		}
 
 		BEnd(BENCH_CELL);
@@ -5373,7 +5373,7 @@ void CellClass::Redraw_Veins(void)
 			}
 			adjacent.Recalc_Attributes();
 
-			rect = Union(rect, Union(adjacent.Overlay_Render_Rect(), adjacent.Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+			rect = Union(rect, Union(adjacent.Overlay_Render_Rect(), adjacent.Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 			TacticalMap->Register_Dirty_Area(rect);
 			Map.Radar_Background(adjacent.CellID);
 		}
@@ -5383,7 +5383,7 @@ void CellClass::Redraw_Veins(void)
 	 * Finally flag this cell's combined (old + new) area for redraw and
 	 * recalculate its land attributes.
 	 */
-	dirty = Union(dirty, Union(Overlay_Render_Rect(), Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+	dirty = Union(dirty, Union(Overlay_Render_Rect(), Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 	TacticalMap->Register_Dirty_Area(dirty);
 	Recalc_Attributes();
 }
@@ -5430,7 +5430,7 @@ void CellClass::Place_Veins(void)
 						adjacent.Overlay = OVERLAY_VEINS;
 						adjacent.OverlayData = 3 * frame + abs(Scen->RandomNumber() % 3);
 						adjacent.Recalc_Attributes();
-						Point2D origin = TacticalRect.TopLeft;
+						Point2D origin = TacticalRect.Top_Left();
 						adjrect = Union(adjrect, Union(adjacent.Overlay_Render_Rect(), adjacent.Overlay_Shadow_Render_Rect())) - origin;
 						TacticalMap->Register_Dirty_Area(adjrect);
 					}
@@ -5439,7 +5439,7 @@ void CellClass::Place_Veins(void)
 					adjrect = Union(adjrect, Union(adjacent.Overlay_Render_Rect(), adjacent.Overlay_Shadow_Render_Rect()));
 					adjacent.Overlay = OVERLAY_VEINS;
 					adjacent.OverlayData = 2 * adjacent.Ramp + (abs(Scen->RandomNumber()) & 1) + OVERLAYDATA_FIRST_RAMP_VEIN;
-					adjrect = Union(adjrect, Union(adjacent.Overlay_Render_Rect(), adjacent.Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+					adjrect = Union(adjrect, Union(adjacent.Overlay_Render_Rect(), adjacent.Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 					TacticalMap->Register_Dirty_Area(adjrect);
 				}
 
@@ -5451,7 +5451,7 @@ void CellClass::Place_Veins(void)
 			OverlayData = 2 * Ramp + (abs(Scen->RandomNumber()) & 1) + OVERLAYDATA_FIRST_RAMP_VEIN;
 		}
 
-		rect = Union(rect, Union(Overlay_Render_Rect(), Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+		rect = Union(rect, Union(Overlay_Render_Rect(), Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 		TacticalMap->Register_Dirty_Area(rect);
 		Recalc_Attributes();
 	}
@@ -6033,7 +6033,7 @@ int CellClass::Reduce_Weed(void)
 void CellClass::Register_For_Redraw(void)
 {
 	Rect rect = Union(Union(Cell_Render_Rect(), Overlay_Render_Rect()), Overlay_Shadow_Render_Rect());
-	TacticalMap->Register_Dirty_Area(rect - TacticalRect.TopLeft);
+	TacticalMap->Register_Dirty_Area(rect - TacticalRect.Top_Left());
 	Map.Radar_Background(CellID);
 }
 
@@ -6164,7 +6164,7 @@ bool CellClass::Place_Tiberium(TiberiumType tib, int data)
 				OverlayData += data;
 				OverlayData = std::min<int>(OverlayData, tiberium->FrameCount - 1);
 				Rect rect = Union(Union(Cell_Render_Rect(), Overlay_Render_Rect()), Overlay_Shadow_Render_Rect());
-				TacticalMap->Register_Dirty_Area(rect - TacticalRect.TopLeft);
+				TacticalMap->Register_Dirty_Area(rect - TacticalRect.Top_Left());
 				tiberium->Queue_Spread(CellID);
 				return(true);
 			}

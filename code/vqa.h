@@ -20,7 +20,7 @@
 #include "ccfile.h"
 
 #include <vqaplay.h>
-#include <windows.h>
+#include "win.h"
 
 //==========================================================================
 // PUBLIC FUNCTIONS

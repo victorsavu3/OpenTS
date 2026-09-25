@@ -1009,7 +1009,7 @@ void UnitClass::Jellyfish_AI(void)
 				CellClass * newcellptr = &Map[newcell];
 				if (newcellptr != NULL) {
 					Coord cell_crd = newcellptr->Cell_Coord();
-					if (abs(cell_crd.Z - PositionCoord.Z) < 3.0 * CELL_LEPTON / 2.0) {
+					if (abs(cell_crd.Z - Get_Coord().Z) < 3.0 * CELL_LEPTON / 2.0) {
 						ObjectClass * occupier = newcellptr->Cell_Occupier(newcellptr->IsUnderBridge && (!cellptr->IsUnderBridge || IsOnBridge));
 						while (occupier != NULL) {
 							ObjectClass * next = occupier->Next;
@@ -1424,7 +1424,7 @@ ResultType UnitClass::Take_Damage(int & damage, int distance, WarheadTypeClass c
 				} ;
 			} else if (HeightAGL <= 10 && IsToExplode && Map[Get_Coord()].Land_Type() == LAND_WATER) {
 				new AnimClass(Rule->Wake, PositionCoord);
-				new AnimClass(Rule->SplashList[Rule->SplashList.Count() - 1], PositionCoord + Coord(0, 0, 5));
+				new AnimClass(Rule->SplashList[Rule->SplashList.Count() - 1], Get_Coord() + Coord(0, 0, 5));
 			} else {
 				Explode();
 			}
@@ -1722,7 +1722,7 @@ bool UnitClass::Enter_Idle_Mode(bool initial, bool resume_waypoint)
 	**	A movement mission without a NavCom would be pointless to have a radio contact since
 	**	no radio coordination occurs on a just a simple movement mission.
 	*/
-	if (Mission == MISSION_MOVE && NavCom == NULL && PositionCoord == PositionCell.As_Coord()) {
+	if (Mission == MISSION_MOVE && NavCom == NULL && PositionCoord == Get_Cell().As_Coord()) {
 		Transmit_Message(RADIO_OVER_OUT);
 	}
 
@@ -1955,7 +1955,7 @@ bool UnitClass::Try_To_Deploy(void)
 						TechnoClass * techno = Technos[i];
 						if (techno->TarCom != NULL && techno->TarCom->RTTI == RTTI_UNIT && techno->TarCom == this) {
 							if (techno->IsActive && techno != this && techno != building) {
-								if ((building->Class->IsMobileWar || building->Class->IsConstructionYard) && techno->RTTI == RTTI_INFANTRY && ((InfantryTypeClass *)techno->TClass)->IsVehicleThief) {
+								if ((building->Class->IsMobileWar || building->Class->IsConstructionYard) && techno->RTTI == RTTI_INFANTRY && ((InfantryTypeClass *)techno->Techno_Type_Class())->IsVehicleThief) {
 									techno->Assign_Target(NULL);
 								} else {
 									techno->Assign_Target(building);
@@ -2002,7 +2002,7 @@ bool UnitClass::Try_To_Deploy(void)
 					**	base.
 					*/
 					if (!House->Is_Human_Player() && building->Class->IsConstructionYard && Session.Type != GAME_NORMAL) {
-						Cell center = building->PositionCoord.As_Cell();
+						Cell center = building->Get_Coord().As_Cell();
 						House->Center = center;
 						House->Begin_Construction(center);
 						House->IsStarted = true;
@@ -2183,7 +2183,7 @@ void UnitClass::Per_Cell_Process(PCPType why)
 			bool arrived = NavCom == NULL;
 			if (Is_Target_Cell(NavCom)) {
 				CellClass *cptr = static_cast<CellClass *>(NavCom);
-				if (cptr->CellID == PositionCoord.As_Cell()) {
+				if (cptr->CellID == Get_Coord().As_Cell()) {
 					arrived = true;
 				}
 			}
@@ -2193,9 +2193,9 @@ void UnitClass::Per_Cell_Process(PCPType why)
 			**	cell, if it is still on the building (e.g., service depot), have
 			**	it scatter again.
 			*/
-			if (Map[(Coord const &)PositionCoord].Cell_Building() == NULL || arrived) {
+			if (Map[Get_Coord()].Cell_Building() == NULL || arrived) {
 				TechnoClass * contact = Contact_With_Whom();
-				if (arrived || contact == NULL || contact->RTTI != RTTI_BUILDING || !static_cast<BuildingClass *>(contact)->Class->IsWeaponsFactory || Map[(Coord const &)PositionCoord].Cell_Building() != contact) {
+				if (arrived || contact == NULL || contact->RTTI != RTTI_BUILDING || !static_cast<BuildingClass *>(contact)->Class->IsWeaponsFactory || Map[Get_Coord()].Cell_Building() != contact) {
 					RadioMessageType response = Transmit_Message(RADIO_UNLOADED);
 					if (response == RADIO_RUN_AWAY) {
 						if (NavCom != NULL && NavCom != Get_Cell_Ptr()) {
@@ -2257,7 +2257,7 @@ void UnitClass::Per_Cell_Process(PCPType why)
 				}
 			}
 
-			if (Map[(Coord const &)PositionCoord].Cell_Building() && NavCom == NULL && NavQueue.Count() == 0 && RouteQueue.Count() == 0) {
+			if (Map[Get_Coord()].Cell_Building() && NavCom == NULL && NavQueue.Count() == 0 && RouteQueue.Count() == 0) {
 				Scatter(COORD_NONE, true, true);
 			}
 		}
@@ -2289,9 +2289,9 @@ void UnitClass::Per_Cell_Process(PCPType why)
 		if (TheaterClass::As_Reference(Scen->Theater).IsIceGrowth) {
 			Map.DirtyIceCells.Clear();
 			if (Class->Weight >= Rule->IceBreakingWeight) {
-				broke_ice = Map.Break_Ice(&Map[(Coord const &)PositionCoord], this);
+				broke_ice = Map.Break_Ice(&Map[Get_Coord()], this);
 			} else if (Class->Weight >= Rule->IceCrackingWeight) {
-				broke_ice = Map.Crack_Ice(&Map[(Coord const &)PositionCoord], this);
+				broke_ice = Map.Crack_Ice(&Map[Get_Coord()], this);
 			}
 			if (broke_ice) {
 				IsSinking = true;
@@ -2336,7 +2336,7 @@ void UnitClass::Per_Cell_Process(PCPType why)
 		**	before the unit completes it's move. In such a case the unit should have been destroyed
 		**	anyway, so blow it up now.
 		*/
-		CellClass * cellptr = &Map[(Coord const &)PositionCoord];
+		CellClass * cellptr = &Map[Get_Coord()];
 		LandType land = cellptr->Land_Type();
 		if (!Locomotion->Is_Moving() && Can_Enter_Cell(cellptr) == MOVE_NO && (!IsOnBridge || !cellptr->IsUnderBridge) && !IsSinking) {
 			new AnimClass(Combat_Anim(Strength, Rule->C4Warhead, land, PositionCoord), PositionCoord, 0, 1, ShapeFlags_Type(SHAPE_CENTER|SHAPE_WIN_REL|SHAPE_ZGRAD), Get_Explosion_Z(PositionCoord));
@@ -2742,7 +2742,7 @@ void UnitClass::Unit_Draw_Shape(Point2D xdrawpoint, Rect xcliprect, int brightne
 	if (Class->IsJellyfish || Class->IsLimpetDrone) {
 		int zoff = 0;
 		if (Class->IsJellyfish) {
-			zoff = -TacticalMap->Z_Lepton_To_Pixel(PositionCoord.Z);
+			zoff = -TacticalMap->Z_Lepton_To_Pixel(Get_Coord().Z);
 		}
 		Draw_Object(shapefile, Fetch_Stage(), xdrawpoint, xcliprect, DIR_N, 256, zoff, ZGRAD_90DEG, false, brightness);
 		return;
@@ -3656,7 +3656,7 @@ int UnitClass::Do_MISSION_HARVEST(void)
 					Assign_Mission(MISSION_HUNT);
 				}
 			}
-			BuildingClass *bptr = Map[(Coord const &)PositionCoord].Cell_Building();
+			BuildingClass *bptr = Map[Get_Coord()].Cell_Building();
 			if (bptr != NULL) {
 				if (bptr->Class->IsRefinery || bptr->Class->IsWeeder) {
 					Assign_Destination(&Map[Nearby_Location(bptr)]);
@@ -4239,7 +4239,7 @@ ActionType UnitClass::What_Action(ObjectClass const * object, bool disallow_forc
 					if (IsOnBridge) {
 						can_deploy = true;
 					} else {
-						CellClass * cellptr = &Map[(Coord const &)PositionCoord];
+						CellClass * cellptr = &Map[Get_Coord()];
 						ObjectClass * object = Cargo.Attached_Object();
 						if (object == NULL || Ground[cellptr->Land_Type()].Cost[object->TClass->Speed] >= 0.01) {
 							can_deploy = true;
@@ -4864,7 +4864,7 @@ FireErrorType UnitClass::Can_Fire(AbstractClass * target, int which) const
 	FireErrorType	fire = BASECLASS::Can_Fire(target, which);
 
 	if (fire == FIRE_OK || fire == FIRE_FACING) {
-		bool buildable = Map[(Coord const &)PositionCoord].Can_Build_Here();
+		bool buildable = Map[Get_Coord()].Can_Build_Here();
 		if (Class->IsDeployToFire && Deploy_To_Fire() && !buildable) {
 			return(FIRE_MUST_DEPLOY);
 		}
@@ -5738,8 +5738,8 @@ void UnitClass::Write_INI(CCINIClass & ini)
 				(char const *)unit->House->Class->IniName,
 				(char const *)unit->Class->IniName,
 				(int)(unit->HealthRatio*256),
-				unit->PositionCell.X,
-				unit->PositionCell.Y,
+				unit->Get_Cell().X,
+				unit->Get_Cell().Y,
 				unit->PrimaryFacing.Current().As_Dir256(),
 				MissionClass::Mission_Name(unit->Mission),
 				(unit->Tag != NULL && unit->Tag->Class != NULL) ? (char const *)unit->Tag->Class->IniName : "None",
@@ -6070,7 +6070,7 @@ bool UnitClass::Ready_To_Commence(void)
 		}
 	} else {
 		BuildingClass * building = Map[Get_Coord()].Cell_Building();
-		if (building != NULL && building->Class->IsWeaponsFactory && (PositionCoord.As_Cell() - building->PositionCoord.As_Cell() == Cell(0, 1))) {
+		if (building != NULL && building->Class->IsWeaponsFactory && (Get_Coord().As_Cell() - building->Get_Coord().As_Cell() == Cell(0, 1))) {
 			return(false);
 		}
 	}

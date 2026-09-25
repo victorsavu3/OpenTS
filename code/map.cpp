@@ -9041,7 +9041,7 @@ bool MapClass::Damage_Low_Bridge_EW(Cell const & cell)
 			break;
 		}
 
-		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 		TacticalMap->Register_Dirty_Area(draw_rect);
 
 		cellptr1->Recalc_Attributes(-1);
@@ -9117,7 +9117,7 @@ bool MapClass::Damage_Low_Bridge_NS(Cell const & cell)
 			break;
 		}
 
-		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 		TacticalMap->Register_Dirty_Area(draw_rect);
 
 		cellptr1->Recalc_Attributes(-1);
@@ -9253,7 +9253,7 @@ void MapClass::Damage_Low_Bridge_Piece_EW(Cell const & cell)
 
 		cellptr3->Overlay = cellptr2->Overlay = cellptr1->Overlay = newoverlay;
 
-		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 		TacticalMap->Register_Dirty_Area(draw_rect, false);
 
 		if (newoverlay == OVERLAY_LOWBRIDGE_27) {
@@ -9332,7 +9332,7 @@ void MapClass::Damage_Low_Bridge_Piece_NS(Cell const & cell)
 
 		cellptr3->Overlay = cellptr2->Overlay = cellptr1->Overlay = newoverlay;
 
-		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+		draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 		TacticalMap->Register_Dirty_Area(draw_rect, false);
 
 		if (newoverlay == OVERLAY_LOWBRIDGE_28) {
@@ -9444,7 +9444,7 @@ void MapClass::Repair_Low_Bridge_EW(Cell const & cell)
 			cellptr2->Overlay = newtype;
 			cellptr3->Overlay = newtype;
 
-			draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+			draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 			TacticalMap->Register_Dirty_Area(draw_rect, false);
 
 			if (otype == OVERLAY_LOWBRIDGE_27) {
@@ -9529,7 +9529,7 @@ void MapClass::Repair_Low_Bridge_NS(Cell const & cell)
 			cellptr2->Overlay = newtype;
 			cellptr3->Overlay = newtype;
 
-			draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.TopLeft;
+			draw_rect = Union(draw_rect, Union(cellptr1->Overlay_Render_Rect(), cellptr1->Overlay_Shadow_Render_Rect())) - TacticalRect.Top_Left();
 			TacticalMap->Register_Dirty_Area(draw_rect, false);
 
 			if (otype == OVERLAY_LOWBRIDGE_28) {

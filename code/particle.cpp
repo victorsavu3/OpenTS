@@ -554,8 +554,8 @@ void ParticleClass::Fire_Behavior_AI(void)
 		RemainingDC--;
 		if (RemainingDC == 0 && Class->Damage && StateAI <= (char)Class->FinalDamageState) {
 			RemainingDC = Class->MaxDC;
-			CellClass *cellptr = &Map[(Coord const &)PositionCoord];
-			bool onbridge = cellptr->IsUnderBridge && PositionCoord.Z >= LEVEL_LEPTON_H * (cellptr->Height + BRIDGE_CELL_HEIGHT);
+			CellClass *cellptr = &Map[Get_Coord()];
+			bool onbridge = cellptr->IsUnderBridge && Get_Coord().Z >= LEVEL_LEPTON_H * (cellptr->Height + BRIDGE_CELL_HEIGHT);
 			ObjectClass *optr = cellptr->Cell_Occupier(onbridge);
 			while (optr != NULL) {
 				optr->PositionCoord;
@@ -661,7 +661,7 @@ void ParticleClass::Behavior_AI(void)
 void ParticleClass::Draw_It(Point2D const & point, Rect const & cliprect) const
 {
 	if (Options.DetailLevel != 0 || Class->BehavesLike != BEHAVIOR_SMOKE && Class->BehavesLike != BEHAVIOR_SPARK) {
-		if (Debug_Map || MainWindow == 0 || !Scen->Special.IsFogOfWar || !Map.Is_Fogged((Coord const &)PositionCoord)) {
+		if (Debug_Map || MainWindow == 0 || !Scen->Special.IsFogOfWar || !Map.Is_Fogged(Get_Coord())) {
 
 			if (Class->BehavesLike != BEHAVIOR_SPARK && Class->BehavesLike != BEHAVIOR_RAILGUN) {
 				int height_offset = -15 - TacticalMap->Z_Lepton_To_Pixel(Height);
@@ -689,7 +689,7 @@ void ParticleClass::Draw_It(Point2D const & point, Rect const & cliprect) const
 					int alpha = *AlphaBuffer->Get_Buffer_Offset(alpha_point);
 					if (alpha != 0) {
 						Point2D depth_point = pixel - Point2D(0, DepthBuffer->Get_Bounds().Y);
-						int zdepth = (unsigned short)(DepthBuffer->Get_Bounds().Y + DepthBuffer->Get_Scroll_Delta(pixel.Y)) - TacticalMap->Z_Lepton_To_Pixel(PositionCoord.Z) - 50;
+						int zdepth = (unsigned short)(DepthBuffer->Get_Bounds().Y + DepthBuffer->Get_Scroll_Delta(pixel.Y)) - TacticalMap->Z_Lepton_To_Pixel(Get_Coord().Z) - 50;
 						int depth = *DepthBuffer->Get_Buffer_Offset(depth_point);
 						if (zdepth < depth) {
 							RGBClass color1 = ColorIndex == 0 ? Color : Class->ColorList[ColorIndex];

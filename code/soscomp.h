@@ -28,6 +28,10 @@
 
 #include <cstdint>
 
+#ifndef _WIN32
+#define __cdecl
+#endif
+
 /* compression types */
 enum {
 	_ADPCM_TYPE_1,

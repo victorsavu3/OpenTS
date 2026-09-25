@@ -203,7 +203,9 @@
 #include <algorithm>
 #include <conio.h>
 #include <ctime>
+#ifdef _WIN32
 #include <dos.h>
+#endif
 #include <string>
 #include <unordered_set>
 #include <vector>

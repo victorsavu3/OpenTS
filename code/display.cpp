@@ -695,7 +695,7 @@ Cell DisplayClass::Set_Cursor_Pos(Cell const & xpos)
 	**	Follow the mouse position if no cell number is provided.
 	*/
 	if (pos == CELL_NONE) {
-		Point2D tl = TacticalRect.TopLeft;
+		Point2D tl = TacticalRect.Top_Left();
 		if (TacticalRect.Is_Point_Within(MouseCursor->Get_Mouse_Point())) {
 			Point2D mouse = MouseCursor->Get_Mouse_Point();
 			Cell click = Map.Click_Cell_Calc(mouse);
@@ -3609,7 +3609,7 @@ char const * DisplayClass::Help_Text(int id)
 	ObjectClass * object;
 	bool fog, shadow;
 
-	Map.Resolve_Point(Get_Mouse_Point() - TacticalRect.TopLeft, cell, coord, object, fog, shadow);
+	Map.Resolve_Point(Get_Mouse_Point() - TacticalRect.Top_Left(), cell, coord, object, fog, shadow);
 
 	/*
 	**	Give a generic help message when over shadow terrain.

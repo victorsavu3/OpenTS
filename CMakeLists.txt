@@ -12,6 +12,7 @@ set(OPENTS_VERSION_PRERELEASE "")
 option(OPENTS_OFFICIAL_BUILD "Build as an official release of the declared version" OFF)
 
 option(OPENTS_EXPERIMENTAL_CLANG_CL "Build with clang-cl using the MSVC ABI" OFF)
+option(OPENTS_EXPERIMENTAL_LINUX "Build a native, unsupported Linux configuration with SDL3" OFF)
 
 # Lets a target's FOLDER place it in a Visual Studio solution folder. The bgfx submodule sets
 # this as well, so declare it here rather than inherit it from a vendored build.
@@ -33,11 +34,19 @@ elseif(MSVC)
         message(FATAL_ERROR
             "OpenTS targets Win32 and x64. Reconfigure with -A Win32 or -A x64.")
     endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(NOT OPENTS_EXPERIMENTAL_LINUX)
+        message(FATAL_ERROR
+            "The unsupported native Linux build must be configured with "
+            "-DOPENTS_EXPERIMENTAL_LINUX=ON.")
+    endif()
 else()
     message(FATAL_ERROR
         "OpenTS requires the Visual Studio 2022 MSVC toolchain. "
         "For the unsupported clang-cl experiment, configure with "
-        "-DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/clang-cl-msvc.cmake.")
+        "-DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/clang-cl-msvc.cmake. "
+        "For the unsupported native Linux build, configure with "
+        "-DOPENTS_EXPERIMENTAL_LINUX=ON.")
 endif()
 
 string(TOLOWER "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" OPENTS_ARCH)
@@ -45,7 +54,9 @@ if(NOT OPENTS_ARCH)
     set(OPENTS_ARCH "unknown")
 endif()
 
-enable_language(RC)
+if(NOT OPENTS_EXPERIMENTAL_LINUX)
+    enable_language(RC)
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -90,16 +101,39 @@ set(OPENTS_STRINGS_ARGS
 execute_process(COMMAND ${CMAKE_COMMAND} ${OPENTS_STAMP_ARGS})
 execute_process(COMMAND ${CMAKE_COMMAND} ${OPENTS_STRINGS_ARGS})
 
-add_custom_target(OpenTSBuildStamp ALL
+set(OPENTS_STAMP_COMMANDS
     COMMAND ${CMAKE_COMMAND} ${OPENTS_STAMP_ARGS}
     COMMAND ${CMAKE_COMMAND} ${OPENTS_STRINGS_ARGS}
+)
+
+# The experimental Linux build has no Language.dll to load its strings from at run time
+# (see the "Language string loading" note in code/data.cpp); it compiles them in instead.
+if(OPENTS_EXPERIMENTAL_LINUX)
+    set(OPENTS_LANGUAGE_STRINGS_HEADER "${OPENTS_GENERATED_DIR}/opents_languagestrings.h")
+    set(OPENTS_LANGUAGE_STRINGS_ARGS
+        "-DOPENTS_LANGUAGE_HEADER=${CMAKE_SOURCE_DIR}/code/language/language.h"
+        "-DOPENTS_LANGUAGE_RC=${CMAKE_SOURCE_DIR}/code/language/language.rc"
+        "-DOPENTS_LANGUAGE_STRINGS_HEADER=${OPENTS_LANGUAGE_STRINGS_HEADER}"
+        -P "${CMAKE_SOURCE_DIR}/cmake/LanguageStrings.cmake"
+    )
+    execute_process(COMMAND ${CMAKE_COMMAND} ${OPENTS_LANGUAGE_STRINGS_ARGS})
+    list(APPEND OPENTS_STAMP_COMMANDS COMMAND ${CMAKE_COMMAND} ${OPENTS_LANGUAGE_STRINGS_ARGS})
+endif()
+
+add_custom_target(OpenTSBuildStamp ALL
+    ${OPENTS_STAMP_COMMANDS}
     COMMENT "Stamping the build identity and the string-name table"
     VERBATIM
 )
 
 add_subdirectory(thirdparty)
 add_subdirectory(code)
-add_subdirectory(code/language)
+
+# Language.dll is a Windows resource-only DLL; the experimental Linux build compiles its
+# strings into the binary instead (see cmake/LanguageStrings.cmake).
+if(NOT OPENTS_EXPERIMENTAL_LINUX)
+    add_subdirectory(code/language)
+endif()
 
 enable_testing()
 add_subdirectory(tests)

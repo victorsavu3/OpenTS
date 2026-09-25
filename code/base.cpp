@@ -241,7 +241,7 @@ BuildingClass * BaseClass::Get_Building(int index) const
 					for (i = 0; i < index; i++) {
 						build = Nodes[i].Type;
 						if (build >= STRUCT_FIRST && BuildingTypes[build] == btype) {
-							if (Nodes[i].CellID == bldg->PositionCoord.As_Cell()) {
+							if (Nodes[i].CellID == bldg->Get_Coord().As_Cell()) {
 								upgrades--;
 							}
 						}

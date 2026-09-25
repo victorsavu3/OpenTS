@@ -30,6 +30,10 @@
 
 #pragma once
 
+#ifndef _MSC_VER
+#include "win_compat.h"
+#endif
+
 #include "session.h"
 
 #include "house.hh"

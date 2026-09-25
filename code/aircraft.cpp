@@ -358,7 +358,7 @@ void AircraftClass::Draw_It(Point2D const & xpoint, Rect const & cliprect) const
 {
 	if (!Debug_Map && MainWindow && Scen->Special.IsFogOfWar) {
 		Coord headto = (Coord)Locomotion->Head_To_Coord();
-		headto.Z = PositionCoord.Z;
+		headto.Z = Get_Coord().Z;
 		if (Map.Is_Fogged(headto) && Map.Is_Fogged(PositionCoord) && !House->Is_Player_Control()) {
 			return;
 		}
@@ -666,7 +666,7 @@ int AircraftClass::Do_MISSION_UNLOAD(void)
 		*/
 		case SEARCH_FOR_LZ:
 			if (HeightAGL == 0 && (double)PitchAngle == 0 && (NavCom == NULL || (PositionCoord == NavCom->Center_Coord()))) {
-				if (Cargo.Is_Something_Attached() && Map[(Coord const &)PositionCoord].Cell_Building() != NULL) {
+				if (Cargo.Is_Something_Attached() && Map[Get_Coord()].Cell_Building() != NULL) {
 					if (House->Is_Human_Player()) {
 						Assign_Destination(NULL);
 						Assign_Mission(MISSION_GUARD);
@@ -705,7 +705,7 @@ int AircraftClass::Do_MISSION_UNLOAD(void)
 
 						Cell cell = CELL_NONE;
 						if (NavCom->RTTI != RTTI_CELL) {
-							cell = Dynamic_Cast<TechnoClass *>(NavCom)->PositionCoord.As_Cell();
+							cell = Dynamic_Cast<TechnoClass *>(NavCom)->Get_Coord().As_Cell();
 						}
 
 						if (cell != CELL_NONE) {
@@ -772,7 +772,7 @@ int AircraftClass::Do_MISSION_UNLOAD(void)
 		**	transport gets changed to MISSION_RETREAT.
 		*/
 		case UNLOAD_PASSENGERS:
-			if (Cargo.Is_Something_Attached() && Map[(Coord const &)PositionCoord].Cell_Building() != NULL) {
+			if (Cargo.Is_Something_Attached() && Map[Get_Coord()].Cell_Building() != NULL) {
 				if (House->Is_Human_Player()) {
 					Assign_Destination(NULL);
 					Assign_Mission(MISSION_GUARD);
@@ -1107,9 +1107,9 @@ BulletClass * AircraftClass::Fire_At(AbstractClass * target, int which)
 		HouseClass const * viewer = House->Player_View();
 		if (viewer != NULL) {
 			if (Map.Is_Shrouded(PositionCoord, viewer) ||
-				Map.Is_Shrouded(PositionCoord + Coord(2 * CELL_LEPTON_W, 2 * CELL_LEPTON_H), viewer) ||
-				Map.Is_Shrouded(PositionCoord + Coord(-2 * CELL_LEPTON_W, -2 * CELL_LEPTON_H), viewer) ||
-				Map.Is_Shrouded(PositionCoord + Coord(2 * CELL_LEPTON_W, -2 * CELL_LEPTON_H), viewer) ||
+				Map.Is_Shrouded(Get_Coord() + Coord(2 * CELL_LEPTON_W, 2 * CELL_LEPTON_H), viewer) ||
+				Map.Is_Shrouded(Get_Coord() + Coord(-2 * CELL_LEPTON_W, -2 * CELL_LEPTON_H), viewer) ||
+				Map.Is_Shrouded(Get_Coord() + Coord(2 * CELL_LEPTON_W, -2 * CELL_LEPTON_H), viewer) ||
 				Aircraft_Fire_Shrouded(PositionCoord, viewer) ||
 				Map.Is_Shrouded(target->Center_Coord(), viewer)) {
 				Map.Sight_From(PositionCoord, Rule->AttackingAircraftSightRange, House);
@@ -1475,7 +1475,7 @@ int AircraftClass::Do_MISSION_MOVE_Carryall(void)
 				DebugString("Do_MISSION_MOVE_Carryall - FLY_TO_LZ - Begin landing\n");
 				if (NavCom != NULL && NavCom->RTTI == RTTI_UNIT) {
 					UnitClass *unit = ((UnitClass *)NavCom);
-					if (unit->PositionCoord.As_Cell() != PositionCoord.As_Cell()) {
+					if (unit->Get_Coord().As_Cell() != Get_Coord().As_Cell()) {
 						Status = VALIDATE_LZ;
 						DebugString("Do_MISSION_MOVE_Carryall - FLY_TO_LZ - Target moved\n");
 						return(1);
@@ -1508,7 +1508,7 @@ int AircraftClass::Do_MISSION_MOVE_Carryall(void)
 			} else {
 				DebugString("Do_MISSION_MOVE_Carryall - LAND - Picking up cargo\n");
 				Mark(MARK_UP);
-				UnitClass * unit = Map[(Coord const &)PositionCoord].Cell_Unit(Map[(Coord const &)PositionCoord].IsUnderBridge);
+				UnitClass * unit = Map[Get_Coord()].Cell_Unit(Map[Get_Coord()].IsUnderBridge);
 				if (unit != NULL && unit == Contact_With_Whom()) {
 					DebugString("Do_MISSION_MOVE_Carryall - LAND - Got Cell_Unit\n");
 					if (Transmit_Message(RADIO_NEED_TO_MOVE) == RADIO_ROGER) {
@@ -1997,7 +1997,7 @@ ActionType AircraftClass::What_Action(ObjectClass const * target, bool disallow_
 	if (action == ACTION_SELF) {
 		if (!Cargo.How_Many()) {
 		action = ACTION_NONE;
-		} else if (Map[(Coord const &)PositionCoord].Cell_Building() != NULL) {
+		} else if (Map[Get_Coord()].Cell_Building() != NULL) {
 			action = ACTION_NO_DEPLOY;
 		}
 	}
@@ -3173,7 +3173,7 @@ AbstractClass * AircraftClass::Good_LZ(void) const
 	/*
 	**	No good location was found. Just try to land here.
 	*/
-	return(&Map[(Coord const &)PositionCoord]);
+	return(&Map[Get_Coord()]);
 }
 
 
@@ -3309,7 +3309,7 @@ int AircraftClass::Do_MISSION_GUARD(void)
 		}
 
 		if (PrimaryWeapon == NULL) {
-			Assign_Destination(&Map[(Coord const &)PositionCoord]);
+			Assign_Destination(&Map[Get_Coord()]);
 			Assign_Mission(MISSION_MOVE);
 		} else {
 			if (Team == NULL) Enter_Idle_Mode();
@@ -3755,8 +3755,8 @@ void AircraftClass::Write_INI(CCINIClass & ini)
 				(char const *)air->House->Class->IniName,
 				(char const *)air->Class->IniName,
 				(int)(air->HealthRatio*256),
-				air->PositionCell.X,
-				air->PositionCell.Y,
+				air->Get_Cell().X,
+				air->Get_Cell().Y,
 				air->PrimaryFacing.Current().As_Dir256(),
 				MissionClass::Mission_Name(air->Mission),
 				(air->Tag != NULL) ? (char const *)air->Tag->Class->IniName : "None",

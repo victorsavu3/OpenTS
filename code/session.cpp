@@ -77,8 +77,14 @@
 
 #include <algorithm>
 #include <ctime> // for station ID computation
+#ifdef _WIN32
 #include <dos.h> // for station ID computation
+#endif
+#ifdef _WIN32
 #include <winsock.h> // for ntohl
+#else
+#include <arpa/inet.h>
+#endif
 
 
 /***************************** Globals *************************************/

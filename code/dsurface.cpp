@@ -111,6 +111,11 @@ DSurface::DSurface(int width, int height) :
 	GDIBuffer(NULL),
 	Pitch(0)
 {
+	if (width <= 0 || height <= 0) {
+		return;
+	}
+
+#ifdef _WIN32
 	/*
 	 * BITMAPINFO carries room for a single color entry, but a bitfields bitmap is
 	 * described by three masks following the header, so the header is declared with
@@ -159,6 +164,14 @@ DSurface::DSurface(int width, int height) :
 	} else {
 		Pitch = width * 2;
 	}
+#else
+	/*
+	 * No GDI on Linux. The buffer is a plain heap allocation, rounded to the same
+	 * four byte row alignment a DIB section would use so Stride() behaves the same way.
+	 */
+	Pitch = (width * 2 + 3) & ~3;
+	GDIBuffer = new unsigned char[(size_t)Pitch * height];
+#endif
 }
 
 
@@ -178,6 +191,7 @@ DSurface::DSurface(int width, int height) :
  *=============================================================================================*/
 DSurface::~DSurface(void)
 {
+#ifdef _WIN32
 	/*
 	 * GDI will not free a bitmap that is still selected into a context, so the one the
 	 * context started with has to go back first.
@@ -197,6 +211,10 @@ DSurface::~DSurface(void)
 	}
 
 	GDIBuffer = NULL;
+#else
+	delete[] (unsigned char *)GDIBuffer;
+	GDIBuffer = NULL;
+#endif
 }
 
 
@@ -253,6 +271,7 @@ DSurface * DSurface::Create_Primary(void)
  *=============================================================================================*/
 HDC DSurface::GetDC(void)
 {
+#ifdef _WIN32
 	if (GDIDC == NULL) {
 		return(NULL);
 	}
@@ -263,6 +282,9 @@ HDC DSurface::GetDC(void)
 	 */
 	LockCount++;
 	return(GDIDC);
+#else
+	return(NULL);
+#endif
 }
 
 
@@ -273,6 +295,7 @@ HDC DSurface::GetDC(void)
 /// <returns>int; Always one. The context outlives the call and is reused.</returns>
 int DSurface::ReleaseDC(HDC hdc)
 {
+#ifdef _WIN32
 	/*
 	 * GDI batches its drawing, so the pixels are not all there until it is flushed.
 	 * Everything else reads them directly.
@@ -286,6 +309,7 @@ int DSurface::ReleaseDC(HDC hdc)
 	if (IsPrimary && LockCount == 0) {
 		Video_Mark_Dirty();
 	}
+#endif
 
 	return(1);
 }
@@ -476,6 +500,7 @@ bool DSurface::Blit_From(Rect const & dcliprect, Rect const & destrect, Surface 
 
 	bool samesize = (sourcerect.Width == destrect.Width && sourcerect.Height == destrect.Height);
 
+#ifdef _WIN32
 	/*
 	 * The software blitter handles everything except a size change between two of these
 	 * surfaces, which GDI stretches instead.
@@ -517,6 +542,58 @@ bool DSurface::Blit_From(Rect const & dcliprect, Rect const & destrect, Surface 
 	}
 
 	return(result);
+#else
+	/*
+	 * Windows has GDI stretch a size change between two of these surfaces; here the same
+	 * case is scaled by hand, since only a DSurface source exposes a buffer to sample.
+	 */
+	DSurface const * source = dynamic_cast<DSurface const *>(&ssource);
+	if (trans || source == NULL || samesize) {
+		bool result = BASECLASS::Blit_From(dcliprect, destrect, ssource, scliprect, sourcerect, trans, unknown);
+		if (result && IsPrimary) {
+			Video_Mark_Dirty();
+		}
+		return(result);
+	}
+
+	if (GDIBuffer == NULL || source->GDIBuffer == NULL) {
+		return(false);
+	}
+
+	Rect drect = destrect.Bias_To(dcliprect);
+	Rect srect = sourcerect.Bias_To(scliprect);
+
+	drect = Intersect(drect, Intersect(dcliprect, Get_Rect()));
+	if (!drect.Is_Valid()) return(false);
+
+	srect = Intersect(srect, Intersect(scliprect, source->Get_Rect()));
+	if (!srect.Is_Valid()) return(false);
+
+	unsigned short const * sbuffer = (unsigned short const *)source->GDIBuffer;
+	int sstride = source->Pitch / 2;
+	unsigned short * dbuffer = (unsigned short *)GDIBuffer;
+	int dstride = Pitch / 2;
+
+	/*
+	 * Nearest-neighbor sampling; a scaled movie frame need not match GDI's COLORONCOLOR
+	 * stretch pixel for pixel.
+	 */
+	for (int y = 0; y < drect.Height; y++) {
+		int sy = srect.Y + (y * srect.Height) / drect.Height;
+		unsigned short const * srow = sbuffer + sy * sstride + srect.X;
+		unsigned short * drow = dbuffer + (drect.Y + y) * dstride + drect.X;
+
+		for (int x = 0; x < drect.Width; x++) {
+			drow[x] = srow[(x * srect.Width) / drect.Width];
+		}
+	}
+
+	if (IsPrimary) {
+		Video_Mark_Dirty();
+	}
+
+	return(true);
+#endif
 }
 
 

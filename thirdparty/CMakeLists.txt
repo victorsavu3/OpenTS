@@ -184,6 +184,28 @@ target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
 #
 # ---------------------------------------------------------
+# SDL3 (window, input, and message-box backend for the experimental Linux build)
+# ---------------------------------------------------------
+#
+if(OPENTS_EXPERIMENTAL_LINUX)
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/SDL/CMakeLists.txt")
+        message(FATAL_ERROR
+            "thirdparty/SDL is empty. Fetch the submodules with:\n"
+            "  git submodule update --init --recursive")
+    endif()
+
+    # The engine links every dependency statically; SDL3 defaults to a shared library
+    # when both are available.
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+    add_subdirectory(SDL)
+endif()
+
+#
+# ---------------------------------------------------------
 # Solution layout
 # ---------------------------------------------------------
 #

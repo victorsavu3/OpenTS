@@ -91,7 +91,9 @@
 #include "weapon.h"
 
 #include <algorithm>
+#ifdef _MSC_VER
 #include <intrin.h>
+#endif
 
 
 
@@ -951,7 +953,7 @@ void BulletClass::Draw_It(Point2D const & point, Rect const & cliprect) const
 		int height_agl = HeightAGL;
 		int height_gl = Map.Get_Height_GL(PositionCoord);
 
-		if (!IsOnBridge && Map[(Coord const &)PositionCoord].IsUnderBridge && height_agl >= BRIDGE_LEPTON_HEIGHT) {
+		if (!IsOnBridge && Map[Get_Coord()].IsUnderBridge && height_agl >= BRIDGE_LEPTON_HEIGHT) {
 			height_agl -= BRIDGE_LEPTON_HEIGHT;
 			height_gl += BRIDGE_LEPTON_HEIGHT;
 		}
@@ -1344,7 +1346,7 @@ void BulletClass::Detonate(Coord const & coord)
 	*/
 	LandType land = LAND_NONE;
 	if (blast_coord.Z - Map.Get_Height_GL(blast_coord) < 2 * LEVEL_LEPTON_H) {
-		land = Map[(Coord const &)PositionCoord].Land_Type();
+		land = Map[Get_Coord()].Land_Type();
 	}
 
 	const AnimTypeClass * anim = Combat_Anim(Strength, Warhead, land, PositionCoord);

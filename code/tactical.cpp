@@ -542,7 +542,7 @@ void Tactical::Wipe_Depth(bool fullredraw, int xoff, int yoff, Rect const & clip
 		for (int i = DirtyAreas.Count() - 1; i >= 0; i--) {
 			Rect redraw = DirtyAreas[i].Area;
 			redraw += Point2D(xoff, yoff);
-			redraw = Intersect(TacticalRect - TacticalRect.TopLeft, redraw);
+			redraw = Intersect(TacticalRect - TacticalRect.Top_Left(), redraw);
 			DirtyAreas[i].Area = redraw;
 
 			if (!redraw.Is_Valid()) {
@@ -560,7 +560,7 @@ void Tactical::Wipe_Depth(bool fullredraw, int xoff, int yoff, Rect const & clip
 			Point2D pixel;
 			Coord_To_Pixel(coord, pixel);
 			pixel += Point2D(ISO_TILE_PIXEL_W, ISO_TILE_PIXEL_H) / -2;
-			pixel += TacticalRect.TopLeft;
+			pixel += TacticalRect.Top_Left();
 
 			if (MainWindow) {
 				CellRedraw[i]->Wipe_Depth(pixel, cliprect);
@@ -847,7 +847,7 @@ void Tactical::Render_Shroud(Rect const & xpanrect, Rect const & ypanrect, Rect 
 			Point2D pixel;
 			Coord_To_Pixel(coord, pixel);
 			pixel += Point2D(ISO_TILE_PIXEL_W, ISO_TILE_PIXEL_H) / -2;
-			pixel += TacticalRect.TopLeft;
+			pixel += TacticalRect.Top_Left();
 
 			if (MainWindow) {
 				CellRedraw[i]->Draw_Shroud_And_Fog(pixel, cliprect);
@@ -872,7 +872,7 @@ void Tactical::Render_Shroud(Rect const & xpanrect, Rect const & ypanrect, Rect 
 	 * The areas that were registered as dirty.
 	 */
 	for (int i = 0; i < DirtyAreas.Count(); i++) {
-		Rect redraw = DirtyAreas[i].Area + TacticalRect.TopLeft;
+		Rect redraw = DirtyAreas[i].Area + TacticalRect.Top_Left();
 		Rect inter = Intersect(redraw, cliprect);
 
 		if (DirtyAreas[i].IsToRefreshShroud) {

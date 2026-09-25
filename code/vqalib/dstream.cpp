@@ -45,7 +45,20 @@
 #include	"vqaplayp.h"
 #include	<stdio.h>
 #include	<fcntl.h>
+#ifdef _WIN32
 #include	<io.h>
+#else
+#include	<unistd.h>
+// POSIX has no text/binary file-mode distinction.
+#define O_BINARY 0
+static long filelength(long fh)
+{
+	long const current = lseek(fh, 0, SEEK_CUR);
+	long const length = lseek(fh, 0, SEEK_END);
+	lseek(fh, current, SEEK_SET);
+	return(length);
+}
+#endif
 #include	<string.h>
 
 

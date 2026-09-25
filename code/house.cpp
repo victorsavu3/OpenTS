@@ -5343,7 +5343,7 @@ Cell HouseClass::Where_To_Go(FootClass const * object) const
 	Cell cell = Random_Cell_In_Zone(zone);
 	assert(cell != CELL_NONE);
 
-	return(Map.Nearby_Location(cell, SPEED_TRACK, Map.Get_Cell_Zone(object->PositionCoord.As_Cell())));
+	return(Map.Nearby_Location(cell, SPEED_TRACK, Map.Get_Cell_Zone(object->Get_Coord().As_Cell())));
 }
 
 
@@ -7468,7 +7468,7 @@ Cell HouseClass::Where_To_Place_Upgrade(BuildingTypeClass const * upgrade) const
 	}
 
 	if (upgradee != NULL) {
-		return(upgradee->PositionCoord.As_Cell());
+		return(upgradee->Get_Coord().As_Cell());
 	}
 
 	return(Cell(0, 0));
@@ -7515,7 +7515,7 @@ void HouseClass::Calculate_Defense_Values(BuildingClass const * building, int va
 {
 	if (value <= 0) value = 1;
 
-	Cell center = building->PositionCoord.As_Cell();
+	Cell center = building->Get_Coord().As_Cell();
 
 	int x_min = std::max(center.X - 6, area.X);
 	int x_max = std::min(area.X + area.Width, center.X + 6);
@@ -7611,7 +7611,7 @@ bool HouseClass::AI_Build_Defense(int nodeindex, DynamicVectorClass<Cell> * cell
 	for (i = 0; i < Buildings.Count(); i++) {
 		BuildingClass * building = Buildings[i];
 		if (building->House == this) {
-			Cell offset = building->PositionCell - Base.PlacementCenter;
+			Cell offset = building->Get_Cell() - Base.PlacementCenter;
 			if (offset.X != 0 || offset.Y != 0) {
 				DirType dir = DirType(std::atan2((double)-offset.Y, (double)offset.X));
 				int quadrant = dir.As_Dir4();
@@ -8719,7 +8719,7 @@ void HouseClass::AI_Chem_Missile(SuperClass * super)
 void HouseClass::Invalidate_Base_Node_Position(BuildingClass * building)
 {
 	if (!Debug_Map) {
-		Cell cell = building->PositionCoord.As_Cell();
+		Cell cell = building->Get_Coord().As_Cell();
 		for (int i = 0; i < Base.Nodes.Count(); i++) {
 			if (Base.Nodes[i].Type == building->Class->HeapID && Base.Nodes[i].CellID == cell) {
 				Cell node_cell = Base.Nodes[i].CellID;
@@ -8785,7 +8785,7 @@ void HouseClass::AI_Takeover(void)
 		return;
 	}
 
-	Cell center = conyard->PositionCoord.As_Cell();
+	Cell center = conyard->Get_Coord().As_Cell();
 	Center = Coord(center, 0);
 	Begin_Construction(center);
 	IsStarted = true;
@@ -8804,7 +8804,7 @@ void HouseClass::AI_Takeover(void)
 				if (building->House == this && !building->IsInLimbo
 					&& (building->Class == btype || building->Upgrades[0] == btype
 						|| building->Upgrades[1] == btype || building->Upgrades[2] == btype)) {
-					Base.Nodes[j].CellID = building->PositionCoord.As_Cell();
+					Base.Nodes[j].CellID = building->Get_Coord().As_Cell();
 				}
 			}
 		}
@@ -8852,13 +8852,13 @@ void HouseClass::AI_Takeover(void)
 		while (l < count) {
 			if (Base.Nodes[l].Type == STRUCT_NONE) {
 				if (building->Class == Rule->WallTower) {
-					Base.Nodes.Insert_After(l, BaseNodeClass(building->Upgrades[building->UpgradeLevel - 1]->HeapID, building->PositionCoord.As_Cell()));
+					Base.Nodes.Insert_After(l, BaseNodeClass(building->Upgrades[building->UpgradeLevel - 1]->HeapID, building->Get_Coord().As_Cell()));
 					Base.Nodes[l].Type = building->Class->HeapID;
-					Base.Nodes[l].CellID = building->PositionCoord.As_Cell();
+					Base.Nodes[l].CellID = building->Get_Coord().As_Cell();
 					l++;
 				} else {
 					Base.Nodes[l].Type = btype->HeapID;
-					Base.Nodes[l].CellID = building->PositionCoord.As_Cell();
+					Base.Nodes[l].CellID = building->Get_Coord().As_Cell();
 				}
 				l++;
 				break;
@@ -8880,7 +8880,7 @@ void HouseClass::AI_Takeover(void)
 		if (!Is_Side_Power_Plant(btype)) {
 			continue;
 		}
-		if (building->PositionCoord.As_Cell() == Base.Nodes[1].CellID) {
+		if (building->Get_Coord().As_Cell() == Base.Nodes[1].CellID) {
 			continue;
 		}
 		if (!building->Class->Who_Can_Build_Me(1, 0, 1, this)) {
@@ -8893,7 +8893,7 @@ void HouseClass::AI_Takeover(void)
 				power_add += ntype->Power;
 				drain_add += ntype->Drain;
 				if (node_index > 0 && power_add < drain_add + PowerSurplus) {
-					Base.Nodes.Insert_After(node_index - 1, BaseNodeClass(building->Class->HeapID, building->PositionCoord.As_Cell()));
+					Base.Nodes.Insert_After(node_index - 1, BaseNodeClass(building->Class->HeapID, building->Get_Coord().As_Cell()));
 					power_add += building->Class->Power;
 					drain_add -= ntype->Drain;
 					node_index++;
@@ -8922,7 +8922,7 @@ void HouseClass::AI_Takeover(void)
 							power += ntype->Power;
 							drain += ntype->Drain;
 							if (bindex > 0 && power < drain + PowerSurplus) {
-								Base.Nodes.Insert_After(bindex - 1, BaseNodeClass(side->PowerTurbine->HeapID, building->PositionCoord.As_Cell()));
+								Base.Nodes.Insert_After(bindex - 1, BaseNodeClass(side->PowerTurbine->HeapID, building->Get_Coord().As_Cell()));
 								power += side->PowerTurbine->Power;
 								drain -= ntype->Drain;
 								bindex++;

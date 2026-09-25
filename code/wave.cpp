@@ -1140,7 +1140,7 @@ void WaveClass::Build_Wave_Shape(Coord const & source_coord, Coord const & targe
 void WaveClass::Wave_Shape_AI(void)
 {
 	if (Target != NULL && Source != NULL && WaveEC != (int)(1.0 / WaveStep) && Source->TarCom == Target) {
-		if ((Source->PositionCoord - Target->As_Coord()).Length() > CELL_LEPTON_DIAG * 6.0) {
+		if ((Source->Get_Coord() - Target->As_Coord()).Length() > CELL_LEPTON_DIAG * 6.0) {
 			IsWaveActive = false;
 		}
 	} else {

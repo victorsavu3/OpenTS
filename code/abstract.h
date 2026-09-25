@@ -32,6 +32,10 @@
 
 #pragma once
 
+#ifndef _MSC_VER
+#include "win_compat.h"
+#endif
+
 #include "coord.h"
 #include "globals.h"
 #include "stimer.h"
@@ -84,7 +88,13 @@ class AbstractClass : public IPersistent
 		**	associated with it. The ID number happens to match the index into
 		**	the object heap appropriate for this object type.
 		*/
+#ifdef _MSC_VER
 		__declspec(property(get = Fetch_RTTI)) RTTIType RTTI;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_PROPERTY(AbstractClass, RTTIType, RTTI, Fetch_RTTI);
+OPENTS_PROPERTY_POP
+#endif
 		int ID;
 
 		/*

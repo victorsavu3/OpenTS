@@ -41,7 +41,9 @@
 #include "trim.h"
 
 #include <algorithm>
+#ifdef _WIN32
 #include <commctrl.h>
+#endif
 
 char *TreeView_Text;
 HWND TreeView_LastHandle;

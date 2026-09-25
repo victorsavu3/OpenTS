@@ -142,7 +142,9 @@
 #include "bench.hh"
 
 #include <algorithm>
+#ifdef _MSC_VER
 #include <intrin.h>
+#endif
 
 
 int const InfantryClass::HumanShape[32] = {7,7,6,6,6,6,5,5,5,5,4,4,4,4,3,3,3,3,2,2,2,2,1,1,1,1,0,0,0,0,7,7};
@@ -420,9 +422,9 @@ ResultType InfantryClass::Take_Damage(int & damage, int distance, WarheadTypeCla
 			}
 		}
 
-		if (HeightAGL <= 10 && Map[(Coord const &)PositionCoord].Land_Type() == LAND_WATER && IsToExplode) {
+		if (HeightAGL <= 10 && Map[Get_Coord()].Land_Type() == LAND_WATER && IsToExplode) {
 			new AnimClass(Rule->Wake, PositionCoord);
-			new AnimClass(Rule->SplashList[0], PositionCoord + Coord(0,0,3));
+			new AnimClass(Rule->SplashList[0], Get_Coord() + Coord(0,0,3));
 			delthis = true;
 		} else if (Class->IsCyborg && IsProne) {
 			new AnimClass(Rule->InfantryExplode, PositionCoord);
@@ -667,16 +669,16 @@ void InfantryClass::Draw_It(Point2D const & xpoint, Rect const & cliprect) const
 			TacticalMap->Add_To_Selectables((ObjectClass *)this, point);
 
 			int brightness;
-			if (IsOnBridge || (Map[(Coord const &)PositionCoord].IsOvershadowed && PositionCoord.Z > Map.Get_Height_GL(PositionCoord) + (BRIDGE_LEPTON_HEIGHT / 2))) {
+			if (IsOnBridge || (Map[Get_Coord()].IsOvershadowed && Get_Coord().Z > Map.Get_Height_GL(PositionCoord) + (BRIDGE_LEPTON_HEIGHT / 2))) {
 				int light = (IonStormClass::Is_Ion_Storm_Active() ? Scen->IonLevelLight : Scen->LevelLight) * (HeightAGL / (2 * LEVEL_LEPTON_H));
 				brightness = Map[tcell].Brightness + light;
 			} else {
-				brightness = Map[tcell].Brightness + (Map[(Coord const &)PositionCoord].IsOvershadowed ? -500 : 0);
+				brightness = Map[tcell].Brightness + (Map[Get_Coord()].IsOvershadowed ? -500 : 0);
 			}
 			brightness += Rule->ExtraInfantryLight;
 
 			int height = HeightAGL;
-			CellClass *cellptr = &Map[(Coord const &)PositionCoord];
+			CellClass *cellptr = &Map[Get_Coord()];
 
 			if (cellptr->IsUnderBridge && height >= BRIDGE_LEPTON_HEIGHT) {
 				if ((cellptr->IsBridgeEastWest && cellptr->Adjacent_Cell(FACING_N).IsUnderBridge) ||
@@ -695,7 +697,7 @@ void InfantryClass::Draw_It(Point2D const & xpoint, Rect const & cliprect) const
 					cliprect,
 					ShapeFlags_Type(SHAPE_ZGRAD|SHAPE_WIN_REL|SHAPE_CENTER|SHAPE_DARKEN),
 					NULL,
-					-5 - TacticalMap->Z_Lepton_To_Pixel(PositionCoord.Z - height)
+					-5 - TacticalMap->Z_Lepton_To_Pixel(Get_Coord().Z - height)
 				);
 			}
 
@@ -785,7 +787,7 @@ void InfantryClass::Per_Cell_Process(PCPType why)
 						bool train = false;
 						for (int y = -2; y < 3; y++) {
 							for (int x = -2; x < 3; x++) {
-								Cell cell = (Cell)Cell(PositionCell + Cell(x, y));
+								Cell cell = (Cell)Cell(Get_Cell() + Cell(x, y));
 								IsometricTileType ittype = Map[cell].ITType;
 								if (ittype >= IsometricTileTypeClass::TrainBridgeSet && ittype < IsometricTileTypeClass::TrainBridgeSet + TRAIN_BRIDGE_COUNT) {
 									train = true;
@@ -1413,7 +1415,7 @@ void InfantryClass::AI(void)
 	}
 
 	if (Mission == MISSION_GUARD) {
-		BuildingClass *building = Map[(Coord const &)PositionCoord].Cell_Building();
+		BuildingClass *building = Map[Get_Coord()].Cell_Building();
 		if (building != NULL) {
 
 			if (!building->Class->IsInvisibleInGame) {
@@ -2353,7 +2355,7 @@ bool InfantryClass::Stop_Driver(void)
 		Do_Action(DO_STAND_READY);
 	}
 
-	if (Can_Enter_Cell(&Map[(Coord const &)PositionCoord], PrimaryFacing.Current().As_Dir8(), Get_Cell_Height()) == MOVE_OK) {
+	if (Can_Enter_Cell(&Map[Get_Coord()], PrimaryFacing.Current().As_Dir8(), Get_Cell_Height()) == MOVE_OK) {
 		IsZoneCheat = false;
 	} else {
 		IsZoneCheat = true;
@@ -3272,8 +3274,8 @@ void InfantryClass::Write_INI(CCINIClass & ini)
 					(char const *)infantry->House->Class->IniName,
 					(char const *)infantry->Class->IniName,
 					int(infantry->HealthRatio*256),
-					infantry->PositionCell.X,
-					infantry->PositionCell.Y,
+					infantry->Get_Cell().X,
+					infantry->Get_Cell().Y,
 					CellClass::Spot_Index(infantry->PositionCoord),
 					MissionClass::Mission_Name((infantry->Mission == MISSION_NONE) ?
 						infantry->MissionQueue : infantry->Mission),
@@ -3317,7 +3319,7 @@ void InfantryClass::Fear_AI(void)
 		if (Class->IsDoggie) {
 			if (Fear >= FEAR_PANIC) {
 				if (!Locomotion->Is_Moving() && NavCom == NULL) {
-					if (Map[(Coord const &)PositionCoord].Land_Type() == LAND_TIBERIUM) {
+					if (Map[Get_Coord()].Land_Type() == LAND_TIBERIUM) {
 						Do_Action(DO_LIE_DOWN);
 					} else {
 						Goto_Tiberium(16, false);

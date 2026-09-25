@@ -746,7 +746,7 @@ void SuperClass::Place(Cell const & cell, bool player)
 			}
 
 			if (hsbuilding) {
-				Cell nearby = Map.Nearby_Location(hsbuilding->PositionCoord.As_Cell(), SPEED_FOOT);
+				Cell nearby = Map.Nearby_Location(hsbuilding->Get_Coord().As_Cell(), SPEED_FOOT);
 				SideClass const * side = House->Acted_Side();
 				if (Map.In_Local_Radar(nearby) && side != NULL && side->HunterSeeker != NULL) {
 					UnitClass * hs = new UnitClass(side->HunterSeeker, House);

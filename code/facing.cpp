@@ -41,7 +41,9 @@
 #include "syncrechook.h"
 
 #include <algorithm>
+#ifdef _MSC_VER
 #include <intrin.h>
+#endif
 
 
 /***********************************************************************************************

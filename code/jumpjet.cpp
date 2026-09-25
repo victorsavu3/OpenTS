@@ -208,7 +208,7 @@ void JumpjetLocomotionClass::Stop_Moving(void)
 			LinkedTo->Clear_Occupy_Bit(HeadToCoord);
 			IsLanding = false;
 		}
-		Cell cell = LinkedTo->PositionCoord.As_Cell();
+		Cell cell = LinkedTo->Get_Coord().As_Cell();
 		Cell nearby = Map.Nearby_Location(cell, SPEED_TRACK);
 		if (nearby != CELL_NONE) {
 			Coord nearby_coord = nearby.As_Coord();
@@ -431,7 +431,7 @@ void JumpjetLocomotionClass::Process_Descent(void)
 			LinkedTo->Mark(MARK_UP);
 			LinkedTo->Set_Coord(HeadToCoord);
 
-			if (LinkedTo->PositionCoord.Z > Map.Get_Height_GL(LinkedTo->PositionCoord)) {
+			if (LinkedTo->Get_Coord().Z > Map.Get_Height_GL(LinkedTo->PositionCoord)) {
 				if (Map[LinkedTo->Get_Coord()].IsUnderBridge) {
 					LinkedTo->IsOnBridge = true;
 				}
@@ -522,7 +522,7 @@ void JumpjetLocomotionClass::Movement_AI(void)
 	int height = LinkedTo->Height;
 	int ground_height = Map.Get_Height_GL(LinkedTo->PositionCoord);
 
-	if (Map[LinkedTo->Get_Coord()].IsUnderBridge && LinkedTo->PositionCoord.Z >= ground_height + BRIDGE_CELL_HEIGHT * LEVEL_LEPTON_H) {
+	if (Map[LinkedTo->Get_Coord()].IsUnderBridge && LinkedTo->Get_Coord().Z >= ground_height + BRIDGE_CELL_HEIGHT * LEVEL_LEPTON_H) {
 		ground_height += BRIDGE_LEPTON_HEIGHT;
 	}
 
@@ -537,7 +537,7 @@ void JumpjetLocomotionClass::Movement_AI(void)
 	if (height_diff < desired_height) {
 		int height_agl = LinkedTo->HeightAGL;
 		if ((Map[LinkedTo->Get_Coord()].IsUnderBridge) && !LinkedTo->IsOnBridge) {
-			if (LinkedTo->PositionCoord.Z >= Map.Get_Height_GL(LinkedTo->PositionCoord) + BRIDGE_LEPTON_HEIGHT) {
+			if (LinkedTo->Get_Coord().Z >= Map.Get_Height_GL(LinkedTo->PositionCoord) + BRIDGE_LEPTON_HEIGHT) {
 				height_agl -= BRIDGE_LEPTON_HEIGHT;
 			}
 		}

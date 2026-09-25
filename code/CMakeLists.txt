@@ -46,6 +46,31 @@ endforeach()
 
 #
 # ---------------------------------------------------------
+# On the experimental Linux build, drop the files that have no non-Windows
+# implementation and add the SDL3-backed ones in their place. IPX transport is
+# legacy and dead on modern networks on every platform, so it stays
+# Windows-only rather than being ported.
+# ---------------------------------------------------------
+#
+if(OPENTS_EXPERIMENTAL_LINUX)
+    set(OPENTS_WINDOWS_ONLY_SRC
+        "${CMAKE_CURRENT_SOURCE_DIR}/winstub.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/msgloop.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Sun.rc"
+        "${CMAKE_CURRENT_SOURCE_DIR}/except.rc"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ipxaddr.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ipxconn.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ipxgconn.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/ipxmgr.cpp"
+    )
+    list(REMOVE_ITEM OPENTS_SRC ${OPENTS_WINDOWS_ONLY_SRC})
+    list(APPEND OPENTS_SRC
+        "${CMAKE_CURRENT_SOURCE_DIR}/sdlstub.cpp"
+    )
+endif()
+
+#
+# ---------------------------------------------------------
 # Create actual OpenTS executable (Win32)
 # ---------------------------------------------------------
 #
@@ -88,7 +113,16 @@ set_target_properties(OpenTS PROPERTIES
 message(STATUS "${PROJECT_NAME}: Applying compiler flags...")
 
 set(OPENTS_COMPILE_OPTIONS
+    # The inherited tree assumes MSVC's permissive aliasing; GCC and Clang optimize on
+    # strict aliasing by default and can miscompile it without this.
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-fno-strict-aliasing>
 
+    # STYLE.md asks every implementation file to put always.h first, for its CRT-name and
+    # __cdecl shims; a translation unit that does not still needs them on this platform.
+    $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-include${CMAKE_CURRENT_SOURCE_DIR}/always.h>
+
+    # These option spellings are MSVC's; a non-MSVC compiler takes its own defaults for
+    # Debug/Release instead (CMAKE_CXX_FLAGS_DEBUG/_RELEASE).
     # ================= DEBUG =================
     $<$<CONFIG:Debug>:
 
@@ -96,13 +130,13 @@ set(OPENTS_COMPILE_OPTIONS
         # /arch:SSE2 -- IEEE-754 single precision, no x87 excess precision.
         # /fp:precise -- no reassociation of the engine's accumulations.
         # /utf-8 -- sources and literals are UTF-8 whatever the build machine's code page.
-        $<$<COMPILE_LANGUAGE:CXX>:
-            /Zi /Od /RTC1 /GR $<$<CXX_COMPILER_ID:MSVC>:/MP> /EHsc /Oy- /MTd /Zc:__cplusplus /arch:SSE2 /fp:precise /utf-8
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:
+            /Zi /Od /RTC1 /GR /MP /EHsc /Oy- /MTd /Zc:__cplusplus /arch:SSE2 /fp:precise /utf-8
         >
 
         # ---------- C ----------
-        $<$<COMPILE_LANGUAGE:C>:
-            /Zi /Od /RTC1 $<$<C_COMPILER_ID:MSVC>:/MP> /Oy- /arch:SSE2 /fp:precise /utf-8
+        $<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:
+            /Zi /Od /RTC1 /MP /Oy- /arch:SSE2 /fp:precise /utf-8
         >
     >
 
@@ -113,13 +147,13 @@ set(OPENTS_COMPILE_OPTIONS
         # /arch:SSE2 -- IEEE-754 single precision, no x87 excess precision.
         # /fp:precise -- no reassociation of the engine's accumulations.
         # /utf-8 -- sources and literals are UTF-8 whatever the build machine's code page.
-        $<$<COMPILE_LANGUAGE:CXX>:
-            /Zi /O2 /GF /GR $<$<CXX_COMPILER_ID:MSVC>:/MP> /EHsc /MT /Zc:__cplusplus /arch:SSE2 /fp:precise /utf-8
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:MSVC>>:
+            /Zi /O2 /GF /GR /MP /EHsc /MT /Zc:__cplusplus /arch:SSE2 /fp:precise /utf-8
         >
 
         # ---------- C ----------
-        $<$<COMPILE_LANGUAGE:C>:
-            /Zi /O2 /GF $<$<C_COMPILER_ID:MSVC>:/MP> /arch:SSE2 /fp:precise /utf-8
+        $<$<AND:$<COMPILE_LANGUAGE:C>,$<C_COMPILER_ID:MSVC>>:
+            /Zi /O2 /GF /MP /arch:SSE2 /fp:precise /utf-8
         >
     >
 )
@@ -156,7 +190,7 @@ set_source_files_properties(${OPENTS_BGFX_SOURCES} PROPERTIES
         "${BGFX_ROOT}/include;${CMAKE_SOURCE_DIR}/thirdparty/bgfx.cmake/bx/include"
     COMPILE_DEFINITIONS
         "BX_CONFIG_DEBUG=$<IF:$<CONFIG:Debug>,1,$<BOOL:${BX_CONFIG_DEBUG}>>"
-    COMPILE_OPTIONS "/Zc:preprocessor"
+    COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/Zc:preprocessor>"
 )
 
 # The frame quad's shaders come from the imgui example and the overlay's from the debug
@@ -190,20 +224,27 @@ set_property(SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/ui/rml/rmltexture.cpp" APPEND P
 )
 
 message(STATUS "${PROJECT_NAME}: Adding compilier definitions...")
-target_compile_definitions(OpenTS PRIVATE
-    WIN32
-    _WINDOWS
-    NOMINMAX
-)
+if(WIN32)
+    target_compile_definitions(OpenTS PRIVATE
+        WIN32
+        _WINDOWS
+        NOMINMAX
+    )
+else()
+    # code/always.h already makes this a no-op outside Windows, but only once it has been
+    # included; some translation units (audio/audiomovie.cpp and its VQA player headers)
+    # reach a __cdecl typedef before that happens.
+    target_compile_definitions(OpenTS PRIVATE __cdecl=)
+endif()
 
 #
 # ---------------------------------------------------------
-# Windows libraries and linker options
+# Platform libraries and linker options
 # ---------------------------------------------------------
 #
 message(STATUS "${PROJECT_NAME}: Applying linker options...")
 
-# Required libraries:
+# Required libraries on Windows:
 #  Comctl32.lib
 #  DbgHelp.lib
 #  DSound.lib
@@ -223,16 +264,25 @@ target_link_libraries(OpenTS PRIVATE
     lzo
     RmlUi::Core
     imgui
-    comctl32
-    dbghelp
-    iphlpapi
-    psapi
-    version
-    winmm
-    ws2_32
-    kernel32 user32 gdi32 winspool comdlg32 advapi32 shell32
-    odbc32 odbccp32
 )
+
+if(WIN32)
+    target_link_libraries(OpenTS PRIVATE
+        comctl32
+        dbghelp
+        iphlpapi
+        psapi
+        version
+        winmm
+        ws2_32
+        kernel32 user32 gdi32 winspool comdlg32 advapi32 shell32
+        odbc32 odbccp32
+    )
+endif()
+
+if(OPENTS_EXPERIMENTAL_LINUX)
+    target_link_libraries(OpenTS PRIVATE SDL3::SDL3)
+endif()
 
 if(MSVC)
     target_link_options(OpenTS PRIVATE
@@ -321,7 +371,9 @@ set_property(GLOBAL PROPERTY VS_STARTUP_PROJECT OpenTS)
 # ---------------------------------------------------------
 # Add the .natvis file for Visual Studio debugging
 # ---------------------------------------------------------
-set(NATVIS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/sun.natvis")
-source_group("Natvis Files" FILES ${NATVIS_FILE})
-target_sources(OpenTS PRIVATE ${NATVIS_FILE})
-target_link_options(OpenTS PRIVATE "/NATVIS:${NATVIS_FILE}")
+if(MSVC)
+    set(NATVIS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/sun.natvis")
+    source_group("Natvis Files" FILES ${NATVIS_FILE})
+    target_sources(OpenTS PRIVATE ${NATVIS_FILE})
+    target_link_options(OpenTS PRIVATE "/NATVIS:${NATVIS_FILE}")
+endif()

@@ -1518,13 +1518,13 @@ void TeamClass::Calc_Center(AbstractClass *& center, AbstractClass *& close_memb
 				/*
 				**	Accumulate X and Y components of qualified team members.
 				*/
-				x += team_member->PositionCoord.X;
-				y += team_member->PositionCoord.Y;
+				x += team_member->Get_Coord().X;
+				y += team_member->Get_Coord().Y;
 				quantity++;
 
 				if (Class->IsGuardSlower && team_member->Is_Considered_Slow()) {
-					x += team_member->PositionCoord.X;
-					y += team_member->PositionCoord.Y;
+					x += team_member->Get_Coord().X;
+					y += team_member->Get_Coord().Y;
 					quantity++;
 				}
 
@@ -3474,7 +3474,7 @@ void TeamClass::TMission_MOVETO_BUILDING_WITH_PROPERTY(TeamMissionClass * missio
 			BuildingClass * bptr = Pick_Building_With_Property(btype, eptr, unit, prop, Class->OnlyTargetHouseEnemy);
 			if (bptr != NULL) {
 				MZoneType mzone = unit->TClass->MZone;
-				Cell cell = bptr->PositionCoord.As_Cell();
+				Cell cell = bptr->Get_Coord().As_Cell();
 				Cell newcell = Map.Nearby_Location(cell, unit->TClass->Speed, Map.Get_Cell_Zone(cell, mzone, unit->IsOnBridge), mzone, false, Point2D(3,3));
 				if (newcell != CELL_NONE) {
 					Assign_Mission_Target(&Map[newcell]);
@@ -3541,7 +3541,7 @@ void TeamClass::TMission_SCOUT(TeamMissionClass * mission, bool)
 
 				FootClass * leader = Fetch_A_Leader();
 				if (leader != NULL) {
-					Cell cell = Map.Nearby_Location(target->PositionCoord.As_Cell(), leader->TClass->Speed);
+					Cell cell = Map.Nearby_Location(target->Get_Coord().As_Cell(), leader->TClass->Speed);
 					if (cell != CELL_NONE) {
 						Assign_Mission_Target(&Map[cell]);
 					} else {

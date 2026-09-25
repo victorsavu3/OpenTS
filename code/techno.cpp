@@ -210,7 +210,9 @@
 #include "tube.hh"
 
 #include <algorithm>
+#ifdef _MSC_VER
 #include <intrin.h>
+#endif
 
 CDTimerClass<FrameTimerClass> TechnoClass::ActionLineTimer;
 bool TechnoClass::ActionLines = true;
@@ -3699,7 +3701,7 @@ void TechnoClass::Assign_Target(AbstractClass * target)
 		**	Prevent targeting of self.
 		*/
 		if (target == this) {
-			target = &Map[(Coord const &)PositionCoord];
+			target = &Map[Get_Coord()];
 		} else {
 
 			/*

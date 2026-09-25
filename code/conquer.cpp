@@ -132,11 +132,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#ifdef _WIN32
 #include <direct.h>
 #include <dos.h>
-#include <fcntl.h>
 #include <io.h>
 #include <share.h>
+#endif
+#include <fcntl.h>
 #include <span>
 
 

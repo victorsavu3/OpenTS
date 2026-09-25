@@ -32,6 +32,10 @@
 
 #pragma once
 
+#ifndef _MSC_VER
+#include "win_compat.h"
+#endif
+
 #include "_voxel.h"
 #include "cargo.h"
 #include "door.h"
@@ -621,14 +625,32 @@ class TechnoClass :	public RadioClass,
 
 		void Assign_Archive_Target(AbstractClass * target);
 		AbstractClass * Fetch_Archive_Target(void) const { return(ArchivedTarget); }
+#ifdef _MSC_VER
 		__declspec( property( get=Fetch_Archive_Target, put=Assign_Archive_Target) ) AbstractClass * ArchiveTarget;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_PROPERTY(TechnoClass, AbstractClass *, ArchiveTarget, Fetch_Archive_Target, Assign_Archive_Target);
+OPENTS_PROPERTY_POP
+#endif
 
 		Coord Railgun_Beam_Damage(Coord & coord, AbstractClass *abstract, WeaponTypeClass *weapon);
 
 		inline WeaponTypeClass * Get_Primary_Weapon(void) const { const WeaponDataStruct * wdata = Get_Class_Weapon_Data(0); return(wdata->Weapon); }
 		inline WeaponTypeClass * Get_Secondary_Weapon(void) const { const WeaponDataStruct * wdata = Get_Class_Weapon_Data(1); return(wdata->Weapon); }
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Primary_Weapon) ) WeaponTypeClass * PrimaryWeapon;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_PROPERTY(TechnoClass, WeaponTypeClass *, PrimaryWeapon, Get_Primary_Weapon);
+OPENTS_PROPERTY_POP
+#endif
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Secondary_Weapon) ) WeaponTypeClass * SecondaryWeapon;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_PROPERTY(TechnoClass, WeaponTypeClass *, SecondaryWeapon, Get_Secondary_Weapon);
+OPENTS_PROPERTY_POP
+#endif
 
 		/*
 		**	AI.

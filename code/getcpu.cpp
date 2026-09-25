@@ -43,7 +43,19 @@
 #include <cstdio>
 #include <cstring>
 
+#ifdef _MSC_VER
 #include <intrin.h>
+#else
+#include <cpuid.h>
+
+// Matches MSVC's __cpuid(int[4], int) signature and eax/ebx/ecx/edx ordering, so the CPUID
+// leaf parsing below needs no change.
+static void __cpuid(int regs[4], int function)
+{
+	__cpuid_count(function, 0, (unsigned int &)regs[0], (unsigned int &)regs[1],
+		(unsigned int &)regs[2], (unsigned int &)regs[3]);
+}
+#endif
 
 /***********************************************************************************************
  * Get_CPU_Type -- Find out what kind of CPU we are running on                                 *

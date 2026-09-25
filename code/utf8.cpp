@@ -12,6 +12,7 @@
 
 #include <cstring>
 
+#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -19,6 +20,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#endif
 
 
 namespace {
@@ -208,12 +210,19 @@ int Best_Fit_Index(unsigned page, short * cache, char32_t code)
 
 	short & slot = cache[code];
 	if (slot == 0) {
+#ifdef _WIN32
 		wchar_t wide = (wchar_t)code;
 		char narrow = 0;
 		BOOL defaulted = FALSE;
 		int written = WideCharToMultiByte(page, 0, &wide, 1, &narrow, 1, NULL, &defaulted);
 		unsigned char byte = (unsigned char)narrow;
 		slot = (written == 1 && !defaulted && byte >= 0x20 && byte != 0x7F) ? (short)byte : (short)-1;
+#else
+		// No Windows best-fit table here, so only a directly mapped code point resolves;
+		// exact for 1252, but 437's upper half never matches.
+		int index = (page == 1252) ? UTF8::Windows_1252_Index(code) : -1;
+		slot = (short)index;
+#endif
 	}
 	return(slot);
 }

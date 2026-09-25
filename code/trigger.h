@@ -32,6 +32,10 @@
 
 #pragma once
 
+#ifndef _MSC_VER
+#include "win_compat.h"
+#endif
+
 #include "abstract.h"
 #include "ftimer.h"
 #include "timer.h"
@@ -88,7 +92,13 @@ class TriggerClass : public AbstractClass
 		void Disable(void);
 		void Set_Enabled(bool val) {if (val) Enable(); else Disable();}
 		bool Is_Enabled(void) const {return(IsActive);}
+#ifdef _MSC_VER
 		__declspec(property(get=Is_Enabled, put=Set_Enabled)) bool IsEnabled;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_PROPERTY(TriggerClass, bool, IsEnabled, Is_Enabled, Set_Enabled);
+OPENTS_PROPERTY_POP
+#endif
 
 		void Flag_Event_Tripped(int event);
 		void Flag_Event_Untripped(int event);

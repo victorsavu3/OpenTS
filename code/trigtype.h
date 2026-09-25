@@ -32,6 +32,10 @@
 
 #pragma once
 
+#ifndef _MSC_VER
+#include "win_compat.h"
+#endif
+
 #include "abstype.h"
 
 #include "attach.hh"
@@ -104,7 +108,13 @@ class TriggerTypeClass : public AbstractTypeClass
 
 		bool Is_Enabled(void) const {return(_IsEnabled);}
 		void Set_Enabled(bool val) {_IsEnabled = val;}
+#ifdef _MSC_VER
 		__declspec(property(get=Is_Enabled, put=Set_Enabled)) bool IsEnabled;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_PROPERTY(TriggerTypeClass, bool, IsEnabled, Is_Enabled, Set_Enabled);
+OPENTS_PROPERTY_POP
+#endif
 
 	public:
 

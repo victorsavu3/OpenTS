@@ -140,7 +140,9 @@
 
 #include <algorithm>
 #include <cstring>
+#ifdef _MSC_VER
 #include <intrin.h>
+#endif
 #include <iterator>
 
 
@@ -1117,7 +1119,7 @@ void FootClass::Approach_Target(void)
 		 */
 		bool checkbuild = false;
 		if (RTTI == RTTI_UNIT && ((UnitClass *)this)->Class->IsDeployToFire) {
-			if (!Map[(Coord const &)PositionCoord].Can_Build_Here()) {
+			if (!Map[Get_Coord()].Can_Build_Here()) {
 				checkbuild = true;
 				int dist = Distance(TarCom) + 2 * CELL_LEPTON;
 				if (maxrange >= dist) {
@@ -1372,7 +1374,7 @@ int FootClass::Do_MISSION_GUARD_AREA(void)
 	**	Ensure that the archive target is valid.
 	*/
 	if (ArchiveTarget == NULL && MissionQueue == MISSION_NONE) {
-		ArchiveTarget = &Map[(Coord const &)PositionCoord];
+		ArchiveTarget = &Map[Get_Coord()];
 	}
 
 	/*
@@ -2071,7 +2073,7 @@ void FootClass::Per_Cell_Process(PCPType why)
 			}
 		}
 
-		if (IsOnBridge && !Map[(Coord const &)PositionCoord].IsUnderBridge) {
+		if (IsOnBridge && !Map[Get_Coord()].IsUnderBridge) {
 			Fall_From_Height();
 		}
 
@@ -4611,7 +4613,7 @@ int FootClass::Do_MISSION_RESCUE(void)
 				Approach_Target();
 			} else {
 				if (ArchiveTarget == NULL) {
-					ArchiveTarget = &Map[(Coord const &)PositionCoord];
+					ArchiveTarget = &Map[Get_Coord()];
 				}
 
 				IsScanLimited = false;

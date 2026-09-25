@@ -40,7 +40,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#ifdef _WIN32
 #include <windowsx.h>
+#endif
 
 
 namespace {

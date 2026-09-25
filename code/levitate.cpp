@@ -711,7 +711,7 @@ double LevitateLocomotionClass::Update_Speed(void)
 /// <returns>True if the coord is on a different cell.</returns>
 bool LevitateLocomotionClass::Is_Not_On_Cell(Coord const & coord)
 {
-	return(coord.As_Cell() != LinkedTo->PositionCoord.As_Cell());
+	return(coord.As_Cell() != LinkedTo->Get_Coord().As_Cell());
 }
 
 
@@ -758,7 +758,7 @@ bool LevitateLocomotionClass::Can_Move_Here(Coord const & coord)
 				bool all_foot = true;
 				ObjectClass * occupier;
 				CellClass * cellptr = &Map[coord];
-				if (abs(coord.Z - LinkedTo->PositionCoord.Z) < 2 * CELL_LEPTON) {
+				if (abs(coord.Z - LinkedTo->Get_Coord().Z) < 2 * CELL_LEPTON) {
 					occupier = cellptr->Cell_Occupier(false);
 				} else if (cellptr->IsBridgeDeck) {
 					occupier = cellptr->Cell_Occupier(true);

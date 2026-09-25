@@ -17,7 +17,10 @@
 #include <algorithm>
 #include <cstring>
 #include <filesystem>
+
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 /*
  * The directories the command line named. Empty means the game's own directory, so an
@@ -124,10 +127,59 @@ char const * Game_Directory_Error(void)
 
 static bool Is_Directory(std::string const & path)
 {
+#ifdef _WIN32
 	DWORD attributes = GetFileAttributes(path.c_str());
 
 	return(attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0);
+#else
+	std::error_code error;
+	return(std::filesystem::is_directory(path, error));
+#endif
 }
+
+
+#ifndef _WIN32
+static bool Create_Directory(std::string const & path)
+{
+	std::error_code error;
+	std::filesystem::create_directory(path, error);
+	return(!error);
+}
+
+
+// Matches Win32 wildcard semantics closely enough for the game's own search patterns
+// ("*.mix", "*.ini", and similar): '*' matches any run of characters, '?' matches one, and
+// the comparison is case-insensitive.
+static bool Match_Wildcard(char const * pattern, char const * name)
+{
+	if (*pattern == '\0') {
+		return(*name == '\0');
+	}
+
+	if (*pattern == '*') {
+		while (*pattern == '*') pattern++;
+		if (*pattern == '\0') {
+			return(true);
+		}
+		for (char const * scan = name; *scan != '\0'; scan++) {
+			if (Match_Wildcard(pattern, scan)) {
+				return(true);
+			}
+		}
+		return(Match_Wildcard(pattern, name + std::strlen(name)));
+	}
+
+	if (*name == '\0') {
+		return(false);
+	}
+
+	if (*pattern == '?' || std::tolower((unsigned char)*pattern) == std::tolower((unsigned char)*name)) {
+		return(Match_Wildcard(pattern + 1, name + 1));
+	}
+
+	return(false);
+}
+#endif
 
 
 void Set_Data_Directory(char const * path)
@@ -224,7 +276,11 @@ std::vector<std::string> Parse_Search_Folders(char const * list)
 bool Apply_Game_Directories(void)
 {
 	if (!UserDirectory.empty()) {
+#ifdef _WIN32
 		if (!Is_Directory(UserDirectory) && !CreateDirectory(UserDirectory.c_str(), NULL)) {
+#else
+		if (!Is_Directory(UserDirectory) && !Create_Directory(UserDirectory)) {
+#endif
 			Report_Directory_Error("user", UserDirectory);
 			return(false);
 		}
@@ -275,7 +331,11 @@ static std::string Own_Folder_Name(char const * folder, char const * filename)
 {
 	std::string const path = UserDirectory + folder;
 
+#ifdef _WIN32
 	CreateDirectory(path.c_str(), NULL);
+#else
+	Create_Directory(path);
+#endif
 
 	return(path + (char)std::filesystem::path::preferred_separator + filename);
 }
@@ -304,6 +364,7 @@ std::string Screenshot_Name(char const * filename)
 
 static void Scan_Folder(char const * prefix, char const * pattern, std::vector<std::string> & names)
 {
+#ifdef _WIN32
 	std::string const search = std::string(prefix) + pattern;
 
 	WIN32_FIND_DATA block;
@@ -331,6 +392,33 @@ static void Scan_Folder(char const * prefix, char const * pattern, std::vector<s
 	} while (FindNextFile(handle, &block));
 
 	FindClose(handle);
+#else
+	std::string const folder = (prefix[0] != '\0') ? std::string(prefix) : std::string(".");
+
+	std::error_code error;
+	for (std::filesystem::directory_entry const & entry : std::filesystem::directory_iterator(folder, error)) {
+		if (!entry.is_regular_file()) {
+			continue;
+		}
+
+		std::string const filename = entry.path().filename().string();
+		if (!Match_Wildcard(pattern, filename.c_str())) {
+			continue;
+		}
+
+		bool present = false;
+		for (std::string const & existing : names) {
+			if (Is_Same_Path(existing, filename)) {
+				present = true;
+				break;
+			}
+		}
+
+		if (!present) {
+			names.push_back(filename);
+		}
+	}
+#endif
 }
 
 

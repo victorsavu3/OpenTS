@@ -585,7 +585,7 @@ bool WalkLocomotionClass::Mark_Head_To(Coord const & coord)
 			}
 		}
 
-		bool isbridge = Map[crd].IsUnderBridge && LinkedTo->PositionCoord.Z > 3 * LEVEL_LEPTON_H + Map.Get_Height_GL(crd);
+		bool isbridge = Map[crd].IsUnderBridge && LinkedTo->Get_Coord().Z > 3 * LEVEL_LEPTON_H + Map.Get_Height_GL(crd);
 		HeadToCoord = Map[crd].Closest_Free_Spot(crd, any_spot, isbridge);
 
 		if (!Map[HeadToCoord].Goodie_Check(LinkedTo) && !LinkedTo->IsInLimbo) {

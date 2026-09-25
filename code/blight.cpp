@@ -144,13 +144,13 @@ void BuildingLightClass::Draw_It(Point2D const & point, Rect const & cliprect) c
 		TacticalMap->Coord_To_Pixel(arc2, arc2_px);
 		TacticalMap->Coord_To_Pixel(Coord(there.X, there.Y, there.Z + 430), caster_px);
 
-		arc1_px += TacticalRect.TopLeft;
-		arc2_px += TacticalRect.TopLeft;
-		caster_px += TacticalRect.TopLeft;
+		arc1_px += TacticalRect.Top_Left();
+		arc2_px += TacticalRect.Top_Left();
+		caster_px += TacticalRect.Top_Left();
 		Point2D caster_px2 = caster_px;
 
 		int zstart = -Tactical::Z_Lepton_To_Pixel(there.Z + 400);
-		int zend = -Tactical::Z_Lepton_To_Pixel(PositionCoord.Z + 250);
+		int zend = -Tactical::Z_Lepton_To_Pixel(Get_Coord().Z + 250);
 
 		if (Clip_Line_To_Rect(caster_px, arc1_px, TacticalRect)) {
 			LogicalSurface->Draw_Depth_Glow_Line(LogicalSurface->Get_Rect(), caster_px, arc1_px, 75 - 6 * stage, zstart, zend);

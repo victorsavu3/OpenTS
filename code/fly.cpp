@@ -290,7 +290,7 @@ void FlyLocomotionClass::Stop_Moving(void)
 {
 	if (Is_Moving()) {
 
-		Cell cell = LinkedTo->PositionCoord.As_Cell();
+		Cell cell = LinkedTo->Get_Coord().As_Cell();
 		if (!LinkedTo->IsALoaner && !Map.In_Local_Radar(cell) && !LinkedTo->Should_Delete_Off_Map()) {
 			cell = Map.Closest_Edge_Cell(cell, true);
 		}
@@ -973,7 +973,7 @@ bool FlyLocomotionClass::Process_Landing(void)
 		ok = true;
 	} else {
 		Take_Off();
-		Cell pos = LinkedTo->PositionCoord.As_Cell();
+		Cell pos = LinkedTo->Get_Coord().As_Cell();
 		Cell nearby = Map.Nearby_Location(pos, SPEED_TRACK, -1, MZONE_FLYER);
 		if (nearby != CELL_NONE) {
 			Coord nearby_coord = nearby.As_Coord();

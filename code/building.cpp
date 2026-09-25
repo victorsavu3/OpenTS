@@ -694,7 +694,7 @@ bool BuildingClass::Render(Rect & rect, bool forced, bool extras_only) const
 		IsToDisplay = false;
 		rect = Intersect(rect, TacticalRect);
 
-		if (rect.Is_Overlapping(((BuildingClass *)this)->Get_Render_Rect() + TacticalRect.TopLeft)) {
+		if (rect.Is_Overlapping(((BuildingClass *)this)->Get_Render_Rect() + TacticalRect.Top_Left())) {
 			Point2D point;
 			TacticalMap->Coord_To_Pixel(Render_Coord(), point);
 			if (rect.X > TacticalRect.X) {
@@ -933,7 +933,7 @@ void BuildingClass::Draw_Extras(Point2D & xy, Rect & rect)
 			TechnoClass * techno = Contact_With_Whom();
 
 			Coord coord = techno->Destination_Coord();
-			coord.Z = techno->PositionCoord.Z;
+			coord.Z = techno->Get_Coord().Z;
 
 			if (!MainWindow || Debug_Map || !Scen->Special.IsFogOfWar || (!Map.Is_Fogged(techno->PositionCoord) && !Map.Is_Fogged(coord))) {
 				Point2D point;
@@ -1763,7 +1763,7 @@ void BuildingClass::AI(void)
 		int frame = FirestormWallFrame & MAX_FIRESTORM_WALL_FRAMES;
 		if (House->FirestormDefenseActivated) {
 			if (frame != 10 && frame != 5 && Anims[BANIM_SPECIAL_TWO] == NULL && (Scen->RandomNumber() & MAX_FIRESTORM_WALL_FRAMES) == 0) {
-				Anims[BANIM_SPECIAL_TWO] = new AnimClass(Rule->FirestormIdleAnim, PositionCoord - Coord(740,740,0), 0, 1, ShapeFlags_Type(SHAPE_WIN_REL|SHAPE_CENTER|SHAPE_TRANSLUCENT50), -10);
+				Anims[BANIM_SPECIAL_TWO] = new AnimClass(Rule->FirestormIdleAnim, Get_Coord() - Coord(740,740,0), 0, 1, ShapeFlags_Type(SHAPE_WIN_REL|SHAPE_CENTER|SHAPE_TRANSLUCENT50), -10);
 			}
 		}
 	}
@@ -2031,7 +2031,7 @@ bool BuildingClass::Unlimbo(Coord const & coord, Dir256 dir)
 
 		if (Class->NaturalParticleSystem != NULL && ParticleSystems[ATTACHED_PARTICLE_NATURAL] == NULL) {
 			Coord sysloc = Class->NaturalParticleLocation;
-			ParticleSystems[ATTACHED_PARTICLE_NATURAL] = new ParticleSystemClass(Class->NaturalParticleSystem, sysloc + PositionCoord, &Map[(Coord const &)PositionCoord], NULL);
+			ParticleSystems[ATTACHED_PARTICLE_NATURAL] = new ParticleSystemClass(Class->NaturalParticleSystem, sysloc + Get_Coord(), &Map[Get_Coord()], NULL);
 		}
 
 		if (Class == Rule->WallTower) {
@@ -2128,9 +2128,9 @@ void BuildingClass::Do_Destruction(TechnoClass *last_contact, TechnoClass *sourc
 			Random_Pick(0, Class->Height() - 2);
 		}
 		if (Percent_Chance(50)) {
-			SmudgeTypeClass::Scorch_The_Ground(PositionCoord.As_Cell(), 100, 100, true);
+			SmudgeTypeClass::Scorch_The_Ground(Get_Coord().As_Cell(), 100, 100, true);
 		} else {
-			SmudgeTypeClass::Crater_The_Ground(PositionCoord.As_Cell(), 100, 100, true);
+			SmudgeTypeClass::Crater_The_Ground(Get_Coord().As_Cell(), 100, 100, true);
 		}
 	}
 
@@ -2144,19 +2144,19 @@ void BuildingClass::Do_Destruction(TechnoClass *last_contact, TechnoClass *sourc
 		**	explosions occur.
 		*/
 		if (Percent_Chance(50)) {
-			coord.Z = PositionCoord.Z;
+			coord.Z = Get_Coord().Z;
 			Coord ccoord = cell;
 			pos = coord + Coord_Scatter(ccoord, CELL_LEPTON / 2);
 			new AnimClass(Rule->SmallFire, pos, Random_Pick(0, 7), Random_Pick(1, 3));
 			if (Percent_Chance(50)) {
-				coord.Z = PositionCoord.Z;
+				coord.Z = Get_Coord().Z;
 				Coord ccoord = cell;
 				pos = coord + Coord_Scatter(ccoord, CELL_LEPTON / 4);
 				new AnimClass(Rule->LargeFire, pos, Random_Pick(0, 7), Random_Pick(1, 3));
 			}
 		}
 		if (Class->Explosion_Set().Count() > 0) {
-			coord.Z = PositionCoord.Z;
+			coord.Z = Get_Coord().Z;
 			Coord ccoord = cell;
 			pos = coord + Coord_Scatter(ccoord, CELL_LEPTON / 4);
 			new AnimClass((Class->Explosion_Set().Pick(Scen->RandomNumber())), pos, Random_Pick(0, 3), 1);
@@ -2331,7 +2331,7 @@ ResultType BuildingClass::Take_Damage(int & damage, int distance, WarheadTypeCla
 				case RESULT_MAJOR:
 					Sound_Effect(Rule->BlowupSound, PositionCoord);
 					while (*offset != REFRESH_EOL) {
-						Cell cell = Cell(*offset++) + PositionCell;
+						Cell cell = Cell(*offset++) + Get_Cell();
 						AnimClass * anim = NULL;
 
 						Coord coord(cell);
@@ -3645,10 +3645,10 @@ void BuildingClass::Place_Free_Unit(void)
 		**	to place it in a nearby location.
 		*/
 		if (!object->Unlimbo(cell, DIR_W)) {
-			cell = Map.Nearby_Location(PositionCoord.As_Cell(), type->Speed, Map.Get_Cell_Zone(PositionCoord.As_Cell(), type->MZone), type->MZone, false, Point2D(1,1), true, true, false, false);
+			cell = Map.Nearby_Location(Get_Coord().As_Cell(), type->Speed, Map.Get_Cell_Zone(Get_Coord().As_Cell(), type->MZone), type->MZone, false, Point2D(1,1), true, true, false, false);
 
 			if (cell == CELL_NONE || !object->Unlimbo(cell, DIR_SW)) {
-				Cell newcell = Map.Nearby_Location(PositionCoord.As_Cell(), type->Speed, Map.Get_Cell_Zone(PositionCoord.As_Cell(), type->MZone), type->MZone, false, Point2D(1,1), false, true, false, false);
+				Cell newcell = Map.Nearby_Location(Get_Coord().As_Cell(), type->Speed, Map.Get_Cell_Zone(Get_Coord().As_Cell(), type->MZone), type->MZone, false, Point2D(1,1), false, true, false, false);
 
 				/*
 				**	If the object could still not be placed, then refund the money
@@ -4147,7 +4147,7 @@ Coord BuildingClass::Center_Coord(void) const
 	int h = (Class->Height(0) * (CELL_LEPTON/2)) - (CELL_LEPTON/2);
 	int w = (Class->Width() * (CELL_LEPTON/2)) - (CELL_LEPTON/2);
 
-	return(PositionCoord + Coord(w, h));
+	return(Get_Coord() + Coord(w, h));
 }
 
 
@@ -4171,9 +4171,9 @@ Coord BuildingClass::Center_Coord(void) const
 Coord BuildingClass::Docking_Coord(void) const
 {
 	if (Class->IsWeeder) {
-		Cell cell = PositionCell + Cell(2, 1);
+		Cell cell = Get_Cell() + Cell(2, 1);
 		Coord coord = cell.As_Coord();
-		coord.Z = PositionCoord.Z;
+		coord.Z = Get_Coord().Z;
 		return(coord);
 	}
 	if (Class->IsRefinery) {
@@ -4621,7 +4621,7 @@ bool BuildingClass::Clear_Weapons_Factory_Bib(void)
 	if (Class->IsWeaponsFactory) {
 
 		Cell exit = Class->ExitList[8];
-		Cell cell = exit + PositionCell;
+		Cell cell = exit + Get_Cell();
 		Cell cell2 = cell;
 		Coord coord = cell.As_Coord();
 		CellClass * cellptr = &Map[cell2];
@@ -5034,7 +5034,7 @@ int BuildingClass::Do_MISSION_DECONSTRUCTION(void)
 							/*
 							 * The exit point is biased 36 leptons south of the cell center.
 							 */
-							Cell newcell = PositionCell + list[Scen->RandomNumber(0, num_cells - 1)];
+							Cell newcell = Get_Cell() + list[Scen->RandomNumber(0, num_cells - 1)];
 							Coord coord = Coord(newcell) + Coord(0, 36, 0);
 							coord = Map[coord].Closest_Free_Spot(coord, false);
 
@@ -5127,7 +5127,7 @@ int BuildingClass::Do_MISSION_DECONSTRUCTION(void)
 						for (i = 0; i < Technos.Count(); i++) {
 							TechnoClass * tptr = Technos[i];
 							if (tptr->TarCom != NULL && tptr->TarCom->RTTI == RTTI_BUILDING && tptr->TarCom == this && tptr->IsActive && tptr != this && tptr != unit) {
-								if (tptr->RTTI == RTTI_INFANTRY && ((InfantryTypeClass *)tptr->TClass)->IsEngineer) {
+								if (tptr->RTTI == RTTI_INFANTRY && ((InfantryTypeClass *)tptr->Techno_Type_Class())->IsEngineer) {
 									tptr->Assign_Target(NULL);
 								} else {
 									targetters.Add(tptr);
@@ -6308,7 +6308,7 @@ int BuildingClass::Do_MISSION_UNLOAD(void)
 {
 	if (Class->IsWeaponsFactory) {
 		Cell exitcell(Class->ExitList[8]);
-		Coord coord(exitcell + PositionCell);
+		Coord coord(exitcell + Get_Cell());
 		enum {
 			INITIAL,
 			CLEAR_BIB,
@@ -6891,11 +6891,11 @@ bool BuildingClass::Can_Player_Move(void) const
 Coord BuildingClass::Exit_Coord(void) const
 {
 	if (Class->IsWeaponsFactory) {
-		return(PositionCoord + Coord(98, 188, 0));
+		return(Get_Coord() + Coord(98, 188, 0));
 	}
 
 	if (Class->ExitCoordinate != COORD_NONE) {
-		return(Class->ExitCoordinate + PositionCoord);
+		return(Class->ExitCoordinate + Get_Coord());
 	}
 
 	return(Center_Coord());
@@ -9111,7 +9111,7 @@ VisualType BuildingClass::Visual_Character(bool raw, HouseClass const * house) c
 		if (TranslucencyLevel > 10) {
 			if (raw) {
 				if (house != NULL) {
-					if (Map[PositionCoord.As_Cell()].Is_Sensed(house)) {
+					if (Map[Get_Coord().As_Cell()].Is_Sensed(house)) {
 						return(VISUAL_SHADOWY);
 					}
 				}
@@ -9307,7 +9307,7 @@ void BuildingClass::Cloaking_AI(bool fast)
 				Cloak = UNCLOAKED;
 				if (ParticleSystems[ATTACHED_PARTICLE_NATURAL] == NULL && Class->NaturalParticleLocation != COORD_NONE) {
 					Coord coord = Coord(Class->NaturalParticleLocation);
-					ParticleSystems[ATTACHED_PARTICLE_NATURAL] = new ParticleSystemClass(Class->NaturalParticleSystem, PositionCoord + coord, &Map[Get_Coord()], NULL);
+					ParticleSystems[ATTACHED_PARTICLE_NATURAL] = new ParticleSystemClass(Class->NaturalParticleSystem, Get_Coord() + coord, &Map[Get_Coord()], NULL);
 				}
 			}
 		}
@@ -9562,7 +9562,7 @@ void BuildingClass::Update_FS_Wall_State(void)
 			Anims[BANIM_SPECIAL_ONE] = NULL;
 		}
 	} else {
-		Anims[BANIM_SPECIAL_ONE] = new AnimClass(Rule->FirestormActiveAnim, PositionCoord - Coord(CELL_LEPTON_W / 2, CELL_LEPTON_H / 2, 0), 1, 0, ShapeFlags_Type(SHAPE_WIN_REL|SHAPE_CENTER), -10);
+		Anims[BANIM_SPECIAL_ONE] = new AnimClass(Rule->FirestormActiveAnim, Get_Coord() - Coord(CELL_LEPTON_W / 2, CELL_LEPTON_H / 2, 0), 1, 0, ShapeFlags_Type(SHAPE_WIN_REL|SHAPE_CENTER), -10);
 		Anims[BANIM_SPECIAL_ONE]->IsFogged = IsFogged;
 	}
 
@@ -9734,7 +9734,7 @@ void BuildingClass::Reserve_Base_Area(bool skip_inner_cells)
 	int width = 2 * spacing + Class->Width();
 	int height = 2 * spacing + Class->Height();
 
-	Cell top_left = PositionCoord.As_Cell() - Cell(spacing, spacing);
+	Cell top_left = Get_Coord().As_Cell() - Cell(spacing, spacing);
 
 	for (int x = top_left.X; x < top_left.X + width; x++) {
 		for (int y = top_left.Y; y < top_left.Y + height; y++) {
@@ -9796,7 +9796,7 @@ void BuildingClass::Release_Base_Area(void)
 	int width = 2 * spacing + Class->Width();
 	int height = 2 * spacing + Class->Height();
 
-	Cell top_left = PositionCoord.As_Cell() - Cell(spacing, spacing);
+	Cell top_left = Get_Coord().As_Cell() - Cell(spacing, spacing);
 
 	int x, y;
 
@@ -9984,7 +9984,7 @@ void BuildingClass::Draw_Radial_Indicator(void) const
 
 				Point2D center;
 				TacticalMap->Coord_To_Pixel(Center_Coord(), center);
-				center += TacticalRect.TopLeft;
+				center += TacticalRect.Top_Left();
 
 				Point2D top_left;
 				top_left.X = center.X - radius;
@@ -10032,7 +10032,7 @@ void BuildingClass::Draw_Radial_Indicator(void) const
 							}
 						}
 
-						LogicalSurface->Draw_Depth_Antialiased_Line(TacticalRect, center - TacticalRect.TopLeft, end - TacticalRect.TopLeft, Class->RadialColor, -500, -500, 0, 0, 1, 0, _transparencies[i]);
+						LogicalSurface->Draw_Depth_Antialiased_Line(TacticalRect, center - TacticalRect.Top_Left(), end - TacticalRect.Top_Left(), Class->RadialColor, -500, -500, 0, 0, 1, 0, _transparencies[i]);
 					}
 				}
 			}
@@ -10096,7 +10096,7 @@ bool BuildingClass::Is_Radar_Visible(DetectedType & detected) const
 
 		int height = Class->Height() * CELL_LEPTON_H - CELL_LEPTON;
 		int width = Class->Width() * CELL_LEPTON_W - CELL_LEPTON;
-		bool shrouded = Map.Is_Shrouded(PositionCoord) && Map.Is_Shrouded(PositionCoord + Coord(width, height)) && MainWindow;
+		bool shrouded = Map.Is_Shrouded(PositionCoord) && Map.Is_Shrouded(Get_Coord() + Coord(width, height)) && MainWindow;
 
 		if (Cloak != CLOAKED && TranslucencyLevel != 15 && !IsFogged && !shrouded) {
 			return(true);
@@ -10490,5 +10490,5 @@ ObjectTypeClass const * BuildingClass::Class_Of(void) const
 /// <returns>Returns with the coordinate to render this building at.</returns>
 Coord BuildingClass::Render_Coord(void) const
 {
-	return(PositionCoord - Coord(CELL_LEPTON/2,CELL_LEPTON/2,0));
+	return(Get_Coord() - Coord(CELL_LEPTON/2,CELL_LEPTON/2,0));
 }

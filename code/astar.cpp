@@ -302,7 +302,7 @@ PathStruct * AStarClass::Find_Path_Regular(Cell const & from, Cell const & to, F
 
 	if (foot->TClass->IsTrain) {
 		if (from_ptr->IsUnderBridge) {
-			if (abs(foot->PositionCoord.Z / LEVEL_LEPTON_H - CurrentCellHeight) > 2) {
+			if (abs(foot->Get_Coord().Z / LEVEL_LEPTON_H - CurrentCellHeight) > 2) {
 				CurrentCellHeight += BRIDGE_CELL_HEIGHT;
 			}
 		}

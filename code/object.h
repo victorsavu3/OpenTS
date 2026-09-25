@@ -32,6 +32,10 @@
 
 #pragma once
 
+#ifndef _MSC_VER
+#include "win_compat.h"
+#endif
+
 #include "abstract.h"
 #include "coord.h"
 #include "face.h"
@@ -224,7 +228,13 @@ class ObjectClass : public AbstractClass
 		virtual bool Not_Underground(void) const;
 		virtual bool Considered_Vehicle(void) const {return(false);}
 		virtual TechnoTypeClass const * Techno_Type_Class(void) const;
+#ifdef _MSC_VER
 		__declspec( property( get=Techno_Type_Class) ) TechnoTypeClass const * TClass;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_PROPERTY(ObjectClass, TechnoTypeClass const *, TClass, Techno_Type_Class);
+OPENTS_PROPERTY_POP
+#endif
 		virtual ObjectTypeClass const * Class_Of(void) const {return(0);}
 		bool Is_Infantry(void) const {return(Fetch_RTTI() == RTTI_INFANTRY);}
 		bool Is_Foot(void) const;
@@ -288,7 +298,13 @@ class ObjectClass : public AbstractClass
 		double Get_Health_Ratio(void) const;
 		void Set_Health_Ratio(double health);
 
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Health_Ratio, put=Set_Health_Ratio ) ) double HealthRatio;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_PROPERTY(ObjectClass, double, HealthRatio, Get_Health_Ratio, Set_Health_Ratio);
+OPENTS_PROPERTY_POP
+#endif
 
 		virtual void Draw_Pre_Render(Point2D const & point, Rect const & cliprect) const { }
 		virtual void Draw_Post_Render(Point2D const & point, Rect const & cliprect) const { }
@@ -329,7 +345,13 @@ class ObjectClass : public AbstractClass
 		virtual MissionType Get_Mission(void) const;
 		virtual void Assign_Mission(MissionType mission) {}
 
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Mission, put=Assign_Mission ) ) MissionType Mission;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_PROPERTY(ObjectClass, MissionType, Mission, Get_Mission, Assign_Mission);
+OPENTS_PROPERTY_POP
+#endif
 
 		/*
 		**	AI.
@@ -350,11 +372,23 @@ class ObjectClass : public AbstractClass
 		virtual Coord Get_Coord(void) const {return(Position);}
 		virtual void Set_Coord(Coord const & coord);
 
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Coord, put=Set_Coord ) ) Coord PositionCoord;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_ARITH_PROPERTY(ObjectClass, Coord, PositionCoord, Get_Coord, Set_Coord);
+OPENTS_PROPERTY_POP
+#endif
 
 		virtual Cell Get_Cell(void) const {return(Position.As_Cell());}
 
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Cell /*put=*/ ) ) Cell PositionCell;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_ARITH_PROPERTY(ObjectClass, Cell, PositionCell, Get_Cell);
+OPENTS_PROPERTY_POP
+#endif
 
 		virtual CellClass * Get_Cell_Ptr(void) const;
 		virtual Cell Get_Target_Cell(void) const;
@@ -365,12 +399,24 @@ class ObjectClass : public AbstractClass
 		virtual int Get_Height_AGL(void) const;
 		virtual void Set_Height_AGL(int);
 
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Height_AGL, put=Set_Height_AGL ) ) int HeightAGL;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_PROPERTY(ObjectClass, int, HeightAGL, Get_Height_AGL, Set_Height_AGL);
+OPENTS_PROPERTY_POP
+#endif
 
 		virtual int Get_Height(void) const;
 		void Set_Height(int height);
 
+#ifdef _MSC_VER
 		__declspec( property( get=Get_Height, put=Set_Height ) ) int Height;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_SET_PROPERTY(ObjectClass, int, Height, Get_Height, Set_Height);
+OPENTS_PROPERTY_POP
+#endif
 
 		void Spring_Tag(TEventType event=TEVENT_ANY, ObjectClass * object=NULL, Cell const & cell=CELL_NONE, bool forced=false, TechnoClass *source=NULL)
 		{

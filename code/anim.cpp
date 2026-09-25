@@ -95,7 +95,9 @@
 #include "bench.hh"
 
 #include <algorithm>
+#ifdef _MSC_VER
 #include <intrin.h>
+#endif
 
 
 /***********************************************************************************************
@@ -734,15 +736,15 @@ void AnimClass::AI(void)
 	if (IsBouncing) {
 		BounceResultType bounce_result = Bounce_AI();
 		if (bounce_result == BOUNCE_SETTLED || bounce_result == BOUNCE_IMPACT) {
-			bool water = Map[(Coord const &)PositionCoord].Land_Type() == LAND_WATER;
-			bool bridge = PositionCoord.Z >= Map.Get_Height_GL(PositionCoord) + BRIDGE_LEPTON_HEIGHT;
+			bool water = Map[Get_Coord()].Land_Type() == LAND_WATER;
+			bool bridge = Get_Coord().Z >= Map.Get_Height_GL(PositionCoord) + BRIDGE_LEPTON_HEIGHT;
 
 			if (water && !bridge) {
 				if (Class->IsMeteor) {
-					new AnimClass(Rule->SplashList[Rule->SplashList.Count()-1], PositionCoord + Coord(0, 0, 3));
+					new AnimClass(Rule->SplashList[Rule->SplashList.Count()-1], Get_Coord() + Coord(0, 0, 3));
 				} else {
 					new AnimClass(Rule->Wake, PositionCoord);
-					new AnimClass(Rule->SplashList[0], PositionCoord + Coord(0, 0, 3));
+					new AnimClass(Rule->SplashList[0], Get_Coord() + Coord(0, 0, 3));
 				}
 			} else {
 				if (Class->ExpireAnim != NULL) {
@@ -1217,7 +1219,7 @@ void AnimClass::Middle(void)
 		}
 	} else if (Class->IsScorcher) {
 		if (HeightAGL < 10) {
-			LandType land = Map[(Coord const &)PositionCoord].Land_Type();
+			LandType land = Map[Get_Coord()].Land_Type();
 			if (land != LAND_WATER && land != LAND_BEACH && land != LAND_ICE && land != LAND_ROCK) {
 				newanim = new AnimClass(Rule->SmallFire, Center_Coord(), 0, Random_Pick(1, 2));
 				if (newanim != NULL && xObject != NULL) {
@@ -1426,7 +1428,7 @@ ObjectTypeClass const * AnimClass::Class_Of(void) const
 bool AnimClass::Limbo(void)
 {
 	if (Class->IsVeins) {
-		Map[(Coord const &)PositionCoord].IsAnimAttached = false;
+		Map[Get_Coord()].IsAnimAttached = false;
 	}
 
 	if (BASECLASS::Limbo()) {
@@ -1449,7 +1451,7 @@ bool AnimClass::Limbo(void)
 /// </summary>
 void AnimClass::Vein_Attack_AI(void)
 {
-	CellClass * cellptr = &Map[(Coord const &)PositionCoord];
+	CellClass * cellptr = &Map[Get_Coord()];
 	ObjectClass * optr = cellptr->Cell_Occupier();
 
 	if (optr == NULL || optr->HeightAGL > 0 || cellptr->Overlay != OVERLAY_VEINS || cellptr->OverlayData < OVERLAYDATA_FIRST_SOLID_VEIN || cellptr->Ramp != 0) {
@@ -1527,7 +1529,7 @@ void AnimClass::Flaming_Guy_AI(void)
 				bool sink = Map[FlamingGuyCoords].Land_Type() == LAND_WATER && HeightAGL <= LEVEL_LEPTON_H;
 				if (nextcoord != COORD_NONE && FlamingGuyRetries < _max_tries && !sink) {
 					FlamingGuyRetries++;
-					int z = PositionCoord.Z;
+					int z = Get_Coord().Z;
 					Coord oldcoord = FlamingGuyCoords;
 					if (z <= Map.Get_Height_GL(oldcoord) + 2 * LEVEL_LEPTON_H) {
 						oldcoord.Z = Map.Get_Height_GL(oldcoord);
@@ -1545,7 +1547,7 @@ void AnimClass::Flaming_Guy_AI(void)
 				}
 			}
 		} else {
-			int z = PositionCoord.Z;
+			int z = Get_Coord().Z;
 			DirType direction = DirType().Direction(Center_Coord(), FlamingGuyCoords);
 			Coord newcoord = Move_Coord(PositionCoord, direction, (float)_max_distance);
 			if (z <= Map.Get_Height_GL(newcoord) + 2 * LEVEL_LEPTON_H) {
@@ -1557,8 +1559,8 @@ void AnimClass::Flaming_Guy_AI(void)
 		}
 
 		if (!IsFalling) {
-			Cell position = PositionCoord.As_Cell();
-			if (PositionCoord.Z >= Map.Get_Height_GL(PositionCoord) + BRIDGE_LEPTON_HEIGHT) {
+			Cell position = Get_Coord().As_Cell();
+			if (Get_Coord().Z >= Map.Get_Height_GL(PositionCoord) + BRIDGE_LEPTON_HEIGHT) {
 				if (!Map[Get_Coord()].IsUnderBridge && !Map[Adjacent_Cell(position, FACING_W)].IsUnderBridge && !Map[Adjacent_Cell(position, FACING_N)].IsUnderBridge) {
 					IsFalling = true;
 				}
@@ -1607,7 +1609,7 @@ Coord AnimClass::Next_Flaming_Guy_Coord(void)
 {
 	bool any = false;
 
-	Cell cell = PositionCoord.As_Cell();
+	Cell cell = Get_Coord().As_Cell();
 	int mindist = 10000;
 	Cell mincell = CELL_NONE;
 

@@ -34,6 +34,10 @@
 
 #pragma once
 
+#ifndef _MSC_VER
+#include "win_compat.h"
+#endif
+
 
 #include "point.h"
 
@@ -79,7 +83,6 @@ class TRect
 		**	Determine is rectangle is valid.
 		*/
 		[[nodiscard]] constexpr bool Is_Valid(void) const {return(Width > 0 && Height > 0);}
-		__declspec(property(get=Is_Valid)) bool IsValid;
 
 		/*
 		**	Returns size of rectangle if each discrete location within it is presumed
@@ -91,16 +94,25 @@ class TRect
 		**	Fetch points of rectangle (used as a convenience for the programmer).
 		*/
 		[[nodiscard]] constexpr TPoint2D<T> Top_Left(void) const {return(TPoint2D<T>(X, Y));}
-		__declspec(property(get=Top_Left)) TPoint2D<T> TopLeft;
-
 		[[nodiscard]] constexpr TPoint2D<T> Top_Right(void) const {return(TPoint2D<T>(T(X + Width - 1), Y));}
-		__declspec(property(get=Top_Right)) TPoint2D<T> TopRight;
-
 		[[nodiscard]] constexpr TPoint2D<T> Bottom_Left(void) const {return(TPoint2D<T>(X, T(Y + Height - 1)));}
-		__declspec(property(get=Bottom_Left)) TPoint2D<T> BottomLeft;
-
 		[[nodiscard]] constexpr TPoint2D<T> Bottom_Right(void) const {return(TPoint2D<T>(T(X + Width - 1), T(Y + Height - 1)));}
+
+#ifdef _MSC_VER
+		__declspec(property(get=Is_Valid)) bool IsValid;
+		__declspec(property(get=Top_Left)) TPoint2D<T> TopLeft;
+		__declspec(property(get=Top_Right)) TPoint2D<T> TopRight;
+		__declspec(property(get=Bottom_Left)) TPoint2D<T> BottomLeft;
 		__declspec(property(get=Bottom_Right)) TPoint2D<T> BottomRight;
+#else
+OPENTS_PROPERTY_PUSH
+		OPENTS_GET_PROPERTY(TRect, bool, IsValid, Is_Valid);
+		OPENTS_GET_PROPERTY(TRect, TPoint2D<T>, TopLeft, Top_Left);
+		OPENTS_GET_PROPERTY(TRect, TPoint2D<T>, TopRight, Top_Right);
+		OPENTS_GET_PROPERTY(TRect, TPoint2D<T>, BottomLeft, Bottom_Left);
+		OPENTS_GET_PROPERTY(TRect, TPoint2D<T>, BottomRight, Bottom_Right);
+OPENTS_PROPERTY_POP
+#endif
 
 
 		/*

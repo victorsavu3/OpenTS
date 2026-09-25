@@ -1113,7 +1113,7 @@ Rect ObjectClass::Get_Visual_Rect(void) const
 		shape_rect.Width,
 		shape_rect.Height);
 
-	if (TacticalRect.Is_Overlapping(visual_rect + TacticalRect.TopLeft)) {
+	if (TacticalRect.Is_Overlapping(visual_rect + TacticalRect.Top_Left())) {
 		return(visual_rect);
 	}
 
@@ -2471,8 +2471,8 @@ Rect Vector_Rect(DynamicVectorClass<ObjectClass *> const & list)
 	if (list.Count() > 0) {
 
 		/// Start with the position of the first object
-		bounds.X = list[0]->PositionCoord.X;
-		bounds.Y = list[0]->PositionCoord.Y;
+		bounds.X = list[0]->Get_Coord().X;
+		bounds.Y = list[0]->Get_Coord().Y;
 
 		for (int i = list.Count() - 1; i >= 0; i--) {
 			Coord coord = list[i]->PositionCoord;

@@ -113,10 +113,14 @@ class DSurface : public XSurface
 		virtual int Stride(void) const override;
 
 		/*
-		 * This surface owns a device context, so GetDC yields one that draws on these
-		 * same pixels.
+		 * On Windows this surface owns a device context, so GetDC yields one that draws
+		 * on these same pixels. Linux has no GDI backing, so GetDC always returns null there.
 		 */
+#ifdef _WIN32
 		virtual bool Is_GDI_Backed(void) const override {return(true);}
+#else
+		virtual bool Is_GDI_Backed(void) const override {return(false);}
+#endif
 
 		virtual bool Can_Blit(void) const;
 

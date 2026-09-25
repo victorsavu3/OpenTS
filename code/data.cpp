@@ -39,7 +39,11 @@
 
 #include "utf8.h"
 
+#ifdef _WIN32
 #include <new.h>
+#else
+#include "opents_languagestrings.h"
+#endif
 
 HINSTANCE LanguageResources;
 
@@ -252,6 +256,7 @@ char const * Fetch_String(int id)
 		Init_Language_Resources(false);
 	}
 
+#ifdef _WIN32
 	if (LoadString(LanguageResources, id, stringptr, sizeof(_buffers[oldest].String)) == 0) {
 		return("");
 	}
@@ -262,6 +267,18 @@ char const * Fetch_String(int id)
 		std::string text = UTF8::From_Windows_1252(stringptr);
 		UTF8::Copy(stringptr, sizeof(_buffers[oldest].String), text.c_str());
 	}
+#else
+	stringptr[0] = '\0';
+	for (OpenTSLanguageString const & entry : OpenTSLanguageStrings) {
+		if (entry.Id == id) {
+			UTF8::Copy(stringptr, sizeof(_buffers[oldest].String), entry.Text);
+			break;
+		}
+	}
+	if (stringptr[0] == '\0') {
+		return("");
+	}
+#endif
 	return(stringptr);
 }
 
@@ -323,6 +340,7 @@ void * Hires_Load(FileClass & file)
 /// <returns>bool; Are the language resources available?</returns>
 bool Init_Language_Resources(bool show_error)
 {
+#ifdef _WIN32
 	if (LanguageResources == NULL) {
 
 		LanguageResources = LoadLibrary("Language.dll");
@@ -342,6 +360,11 @@ bool Init_Language_Resources(bool show_error)
 			return(false);
 		}
 	}
+#else
+	// The strings are compiled in; there is no library to fail to load.
+	(void)show_error;
+	LanguageResources = (HINSTANCE)1;
+#endif
 
 	return(true);
 }
@@ -358,6 +381,12 @@ bool Init_Language_Resources(bool show_error)
 /// <remarks>Be sure that the destination buffer is big enough to hold the composed text.</remarks>
 void Get_Language_Version(char *version_string)
 {
+	if (version_string == NULL) {
+		return;
+	}
+	version_string[0] = '\0';
+
+#ifdef _WIN32
 	INT dwSize;
 	LPVOID pFileInfo;
 	UINT puInfoLen;
@@ -372,9 +401,7 @@ void Get_Language_Version(char *version_string)
 	char szQuery[128];
 	char szFile[MAX_PATH];
 
-	if (version_string != NULL) {
-		version_string[0] = '\0';
-
+	{
 		if (LanguageResources != NULL && GetModuleFileName(LanguageResources, szFile, sizeof(szFile)) > 0) {
 
 			dwHandle = 1;
@@ -412,4 +439,5 @@ void Get_Language_Version(char *version_string)
 			}
 		}
 	}
+#endif
 }

@@ -18,15 +18,29 @@
 #include "opents_build.h"
 #include "win.h"
 
+#ifdef _WIN32
 #include <shellapi.h>
+#endif
 
 #include <algorithm>
 #include <cerrno>
+#ifdef _WIN32
 #include <conio.h>
+#endif
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+
+#include <chrono>
+#include <cstdint>
+#include <ctime>
+#include <filesystem>
+#include <mutex>
+#include <sys/utsname.h>
+#include <unistd.h>
+
+#ifdef _WIN32
 
 #define CONSOLE_WINDOW_NAME		"Debug Console"
 
@@ -528,7 +542,12 @@ void Debug_Console_Hold(void)
 	}
 
 	DebugString("Press any key to close this window.\n");
+#ifdef _WIN32
 	_getch();
+#else
+	// No raw single-keypress read without termios; Enter closes it instead.
+	std::getchar();
+#endif
 }
 
 
@@ -622,3 +641,315 @@ char const * Last_Error_Text(unsigned long error)
 
 	return(message_buffer);
 }
+
+#else
+
+
+#define CONSOLE_WINDOW_NAME		"Debug Console"
+
+#ifdef _DEBUG
+static char const BuildType[] = "debug";
+#else
+static char const BuildType[] = "release";
+#endif
+
+static constexpr size_t DEBUG_MESSAGE_MAX = 4096;
+static constexpr unsigned DEBUG_LOG_MAX_AGE_DAYS = 14;
+static constexpr std::uint64_t DEBUG_LOG_MAX_BYTES = 64ULL * 1024ULL * 1024ULL;
+
+static std::mutex DebugLock;
+static bool DebugInitDone = false;
+static bool AtLineStart = true;
+static bool ConsoleActive = false;
+static FILE * DebugFile = nullptr;
+static char DebugDirectory[512];
+static char DebugFileName[512];
+static std::uint64_t DebugBytesWritten = 0;
+
+
+// Matches the Windows path's contract (directories are never removed), using std::filesystem
+// instead of the FindFirstFile family this build does not have.
+bool Delete_Files_Older_Than(char const * directory, char const * pattern, unsigned days)
+{
+	if (directory == NULL || pattern == NULL || days > 90) {
+		return(false);
+	}
+
+	std::string prefix(pattern);
+	std::string suffix;
+	std::string::size_type const star = prefix.find('*');
+	if (star != std::string::npos) {
+		suffix = prefix.substr(star + 1);
+		prefix = prefix.substr(0, star);
+	}
+
+	auto const cutoff = std::chrono::system_clock::now() - std::chrono::hours(24) * days;
+
+	std::error_code error;
+	for (std::filesystem::directory_entry const & entry :
+			std::filesystem::directory_iterator(directory, error)) {
+		if (!entry.is_regular_file()) {
+			continue;
+		}
+
+		std::string const name = entry.path().filename().string();
+		if (name.size() < prefix.size() + suffix.size()
+				|| name.compare(0, prefix.size(), prefix) != 0
+				|| name.compare(name.size() - suffix.size(), suffix.size(), suffix) != 0) {
+			continue;
+		}
+
+		std::error_code time_error;
+		auto const written = std::filesystem::last_write_time(entry.path(), time_error);
+		if (time_error) {
+			continue;
+		}
+
+		auto const written_system = std::chrono::clock_cast<std::chrono::system_clock>(written);
+		if (written_system >= cutoff) {
+			continue;
+		}
+
+		std::filesystem::remove(entry.path(), time_error);
+	}
+
+	return(true);
+}
+
+
+static void Write_Banner_Locked(std::tm const & started);
+
+
+// The log belongs beside the executable, matching the Windows path's intent; /proc/self/exe
+// is the portable-enough way to find it on this platform.
+static void Init_Locked(void)
+{
+	if (DebugInitDone) {
+		return;
+	}
+	DebugInitDone = true;
+
+	std::error_code error;
+	std::filesystem::path exe_dir = std::filesystem::read_symlink("/proc/self/exe", error).parent_path();
+	if (error) {
+		exe_dir = std::filesystem::current_path(error);
+	}
+
+	std::filesystem::path const debug_dir = exe_dir / "Debug";
+	std::snprintf(DebugDirectory, sizeof(DebugDirectory), "%s", debug_dir.c_str());
+
+	std::time_t const now_time = std::time(nullptr);
+	std::tm now{};
+	localtime_r(&now_time, &now);
+
+	char timestamp[32];
+	std::snprintf(timestamp, sizeof(timestamp), "%02d-%02d-%04d_%02d-%02d-%02d",
+				now.tm_mday, now.tm_mon + 1, now.tm_year + 1900, now.tm_hour, now.tm_min, now.tm_sec);
+
+	std::filesystem::create_directories(debug_dir, error);
+	if (!error) {
+		Delete_Files_Older_Than(DebugDirectory, "DEBUG_*.LOG", DEBUG_LOG_MAX_AGE_DAYS);
+
+		std::filesystem::path candidate = debug_dir / (std::string("DEBUG_") + timestamp + ".LOG");
+		if (std::filesystem::exists(candidate)) {
+			candidate = debug_dir / (std::string("DEBUG_") + timestamp + "_" + std::to_string(getpid()) + ".LOG");
+		}
+
+		std::snprintf(DebugFileName, sizeof(DebugFileName), "%s", candidate.c_str());
+		DebugFile = std::fopen(DebugFileName, "w");
+		if (DebugFile == nullptr) {
+			DebugFileName[0] = '\0';
+		}
+	}
+
+	// A terminal is already this process's console; there is nothing to allocate.
+	ConsoleActive = true;
+
+	Write_Banner_Locked(now);
+}
+
+
+static void Write_Text_Locked(char const * text, size_t length)
+{
+	if (DebugFile != nullptr) {
+		if (DebugBytesWritten + length > DEBUG_LOG_MAX_BYTES) {
+			std::fputs("\n*** Log size limit reached. Nothing further will be written to this file. ***\n", DebugFile);
+			std::fclose(DebugFile);
+			DebugFile = nullptr;
+		} else {
+			std::fwrite(text, 1, length, DebugFile);
+			std::fflush(DebugFile);
+			DebugBytesWritten += length;
+		}
+	}
+
+	if (ConsoleActive) {
+		std::fwrite(text, 1, length, stderr);
+	}
+}
+
+
+static void Write_Message_Locked(char const * buffer, bool with_prefix)
+{
+	size_t const length = strlen(buffer);
+	if (length == 0) {
+		return;
+	}
+
+	if (with_prefix && AtLineStart) {
+		std::time_t const now_time = std::time(nullptr);
+		std::tm now{};
+		localtime_r(&now_time, &now);
+
+		char stamped[DEBUG_MESSAGE_MAX + 32];
+		int const written = std::snprintf(stamped, sizeof(stamped), "[%02d:%02d:%02d] %s",
+												now.tm_hour, now.tm_min, now.tm_sec, buffer);
+		if (written > 0) {
+			size_t const kept = std::min(size_t(written), sizeof(stamped) - 1);
+			Write_Text_Locked(stamped, kept);
+			AtLineStart = buffer[length - 1] == '\n';
+			return;
+		}
+	}
+
+	Write_Text_Locked(buffer, length);
+	AtLineStart = buffer[length - 1] == '\n';
+}
+
+
+static void Write_Banner_Locked(std::tm const & started)
+{
+	static char const Wordmark[] =
+R"ART(
+  ___                  _____ ____
+ / _ \ _ __   ___ _ __|_   _/ ___|
+| | | | '_ \ / _ \ '_ \ | | \___ \
+| |_| | |_) |  __/ | | || |  ___) |
+ \___/| .__/ \___|_| |_||_| |____/
+      |_|
+
+)ART";
+
+	Write_Message_Locked(Wordmark + 1, false);
+
+	char line[512];
+
+	std::snprintf(line, sizeof(line), "Version  : OpenTS %s (%s %s build)\n", OPENTS_VERSION, OPENTS_ARCH, BuildType);
+	Write_Message_Locked(line, false);
+
+	std::snprintf(line, sizeof(line), "Commit   : %s on %s%s\n", OPENTS_COMMIT, OPENTS_BRANCH,
+				OPENTS_COMMIT_DIRTY ? " (modified)" : "");
+	Write_Message_Locked(line, false);
+
+	std::snprintf(line, sizeof(line), "Committed: %s\n", OPENTS_COMMIT_DATE);
+	Write_Message_Locked(line, false);
+
+	std::snprintf(line, sizeof(line), "Started  : %04d-%02d-%02d %02d:%02d:%02d\n",
+				started.tm_year + 1900, started.tm_mon + 1, started.tm_mday,
+				started.tm_hour, started.tm_min, started.tm_sec);
+	Write_Message_Locked(line, false);
+
+	struct utsname system_info;
+	std::snprintf(line, sizeof(line), "System   : %s\n",
+				(uname(&system_info) == 0) ? system_info.version : "unknown");
+	Write_Message_Locked(line, false);
+
+	Write_Message_Locked("--------------------------------------------------------------------------------\n", false);
+}
+
+
+static void Emit(char const * buffer, bool with_prefix)
+{
+	int const last_errno = errno;
+
+	std::lock_guard<std::mutex> lock(DebugLock);
+
+	Init_Locked();
+	Write_Message_Locked(buffer, with_prefix);
+
+	errno = last_errno;
+}
+
+
+void Debug_Init(void)
+{
+	std::lock_guard<std::mutex> lock(DebugLock);
+	Init_Locked();
+}
+
+
+void Debug_Init_Console(void)
+{
+	Debug_Init();
+}
+
+
+void Debug_Console_Hold(void)
+{
+	if (!ConsoleActive) {
+		return;
+	}
+
+	DebugString("Press any key to close this window.\n");
+	std::getchar();
+}
+
+
+char const * Debug_Log_File_Name(void)
+{
+	std::lock_guard<std::mutex> lock(DebugLock);
+	Init_Locked();
+	return(DebugFileName);
+}
+
+
+char const * Debug_Directory(void)
+{
+	std::lock_guard<std::mutex> lock(DebugLock);
+	Init_Locked();
+	return(DebugDirectory);
+}
+
+
+void DebugString(char const * string, ...)
+{
+	int const last_errno = errno;
+
+	char buffer[DEBUG_MESSAGE_MAX];
+
+	va_list va;
+	va_start(va, string);
+	vsnprintf(buffer, sizeof(buffer), string, va);
+	va_end(va);
+
+	Emit(buffer, true);
+
+	errno = last_errno;
+}
+
+
+void DebugStringNoPrefix(char const * string, ...)
+{
+	int const last_errno = errno;
+
+	char buffer[DEBUG_MESSAGE_MAX];
+
+	va_list va;
+	va_start(va, string);
+	vsnprintf(buffer, sizeof(buffer), string, va);
+	va_end(va);
+
+	Emit(buffer, false);
+
+	errno = last_errno;
+}
+
+
+char const * Last_Error_Text(unsigned long error)
+{
+	static thread_local char message_buffer[256];
+	std::snprintf(message_buffer, sizeof(message_buffer), "%s", std::strerror((int)error));
+	return(message_buffer);
+}
+
+#endif

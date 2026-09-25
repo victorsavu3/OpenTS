@@ -160,10 +160,14 @@
 #include "zbuffer.h"
 
 #include <cfloat>
+#ifdef _WIN32
 #include <conio.h>
 #include <io.h>
+#endif
 #include <lzo/lzoconf.h>
+#ifdef _WIN32
 #include <shellapi.h>
+#endif
 #include <string>
 #include <vector>
 

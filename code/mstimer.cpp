@@ -14,6 +14,7 @@
 #include "win.h"
 
 
+#ifdef _WIN32
 // Windows 10 SDKs such as 10.0.19041 lack this Windows 11 flag.
 #ifndef PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION
 #define PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION 0x4
@@ -35,6 +36,7 @@ static struct MillisecondResolutionClass
 	}
 	~MillisecondResolutionClass(void) { timeEndPeriod(1); }
 } MillisecondResolution;
+#endif
 
 
 /// <summary>

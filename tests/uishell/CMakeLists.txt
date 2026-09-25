@@ -14,6 +14,7 @@ opents_add_test(UIShell
         ui/uireveal.cpp
         ui/uiunicode.cpp
         utf8.cpp
+        codepage.cpp
         hsv.cpp
         rgb.cpp
         ui/rml/rmlfont.cpp

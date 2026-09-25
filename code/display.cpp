@@ -119,6 +119,7 @@
 #include "foot.h"
 #include "globals.h"
 #include "goptions.h"
+#include "hostwindow.h"
 #include "incdec.h"
 #include "infatype.h"
 #include "inline.h"
@@ -2436,7 +2437,8 @@ void DisplayClass::Mouse_Left_Held(Point2D const & point)
 
 			// The system drag distance follows the display scale and accessibility settings.
 			Point2D travel = point - (Point2D &)BandX;
-			if (abs(travel.X) > GetSystemMetrics(SM_CXDRAG) || abs(travel.Y) > GetSystemMetrics(SM_CYDRAG)) {
+			Point2D const drag_threshold = Host_Drag_Threshold();
+			if (abs(travel.X) > drag_threshold.X || abs(travel.Y) > drag_threshold.Y) {
 				IsRubberBand = true;
 				IsTentative = false;
 				if (!IsWaypointMode) {

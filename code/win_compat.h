@@ -22,6 +22,8 @@
 #include <dirent.h>
 #include <string>
 #include <sys/stat.h>
+#include <sys/sysinfo.h>
+#include <unistd.h>
 #include <thread>
 
 using BYTE = std::uint8_t;
@@ -517,6 +519,96 @@ inline DWORD GetFileAttributes(char const * path)
 }
 #define GetFileAttributesA GetFileAttributes
 
+struct WIN32_FILE_ATTRIBUTE_DATA
+{
+	DWORD dwFileAttributes;
+	FILETIME ftCreationTime;
+	FILETIME ftLastAccessTime;
+	FILETIME ftLastWriteTime;
+	DWORD nFileSizeHigh;
+	DWORD nFileSizeLow;
+};
+
+enum GET_FILEEX_INFO_LEVELS
+{
+	GetFileExInfoStandard,
+};
+
+inline BOOL GetFileAttributesEx(char const * path, GET_FILEEX_INFO_LEVELS, void * data)
+{
+	struct stat info;
+	if (stat(path, &info) != 0) {
+		return(FALSE);
+	}
+
+	auto const to_ticks = [](time_t seconds) {
+		return(OpenTS_Ticks_To_FileTime((std::uint64_t)seconds * 10000000ULL + OPENTS_FILETIME_UNIX_EPOCH));
+	};
+
+	WIN32_FILE_ATTRIBUTE_DATA * out = (WIN32_FILE_ATTRIBUTE_DATA *)data;
+	out->dwFileAttributes = S_ISDIR(info.st_mode) ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL;
+	out->ftCreationTime = to_ticks(info.st_ctime);
+	out->ftLastAccessTime = to_ticks(info.st_atime);
+	out->ftLastWriteTime = to_ticks(info.st_mtime);
+	out->nFileSizeHigh = (DWORD)((std::uint64_t)info.st_size >> 32);
+	out->nFileSizeLow = (DWORD)(info.st_size & 0xFFFFFFFFu);
+	return(TRUE);
+}
+
+struct MEMORYSTATUS
+{
+	DWORD dwLength;
+	DWORD dwMemoryLoad;
+	DWORD dwTotalPhys;
+	DWORD dwAvailPhys;
+	DWORD dwTotalPageFile;
+	DWORD dwAvailPageFile;
+	DWORD dwTotalVirtual;
+	DWORD dwAvailVirtual;
+};
+
+inline void GlobalMemoryStatus(MEMORYSTATUS * status)
+{
+	struct sysinfo info;
+	std::memset(status, 0, sizeof(*status));
+	status->dwLength = sizeof(*status);
+	if (sysinfo(&info) != 0) {
+		return;
+	}
+
+	std::uint64_t const total_phys = (std::uint64_t)info.totalram * info.mem_unit;
+	std::uint64_t const avail_phys = (std::uint64_t)info.freeram * info.mem_unit;
+	std::uint64_t const total_swap = (std::uint64_t)info.totalswap * info.mem_unit;
+	std::uint64_t const avail_swap = (std::uint64_t)info.freeswap * info.mem_unit;
+
+	status->dwMemoryLoad = total_phys > 0 ? (DWORD)(100 - (avail_phys * 100 / total_phys)) : 0;
+	status->dwTotalPhys = (DWORD)std::min<std::uint64_t>(total_phys, 0xFFFFFFFFu);
+	status->dwAvailPhys = (DWORD)std::min<std::uint64_t>(avail_phys, 0xFFFFFFFFu);
+	status->dwTotalPageFile = (DWORD)std::min<std::uint64_t>(total_phys + total_swap, 0xFFFFFFFFu);
+	status->dwAvailPageFile = (DWORD)std::min<std::uint64_t>(avail_phys + avail_swap, 0xFFFFFFFFu);
+	status->dwTotalVirtual = status->dwTotalPageFile;
+	status->dwAvailVirtual = status->dwAvailPageFile;
+}
+
+// There is one module on this build: the executable itself, resolved through /proc/self/exe.
+// A caller-supplied handle is ignored, matching GetModuleHandle(nullptr)'s own meaning.
+inline HMODULE GetModuleHandle(char const *)
+{
+	return((HMODULE)1);
+}
+#define GetModuleHandleA GetModuleHandle
+
+inline DWORD GetModuleFileName(HMODULE, char * buffer, DWORD buffer_size)
+{
+	ssize_t const written = readlink("/proc/self/exe", buffer, buffer_size > 0 ? (std::size_t)buffer_size - 1 : 0);
+	if (written < 0) {
+		return(0);
+	}
+
+	buffer[written] = '\0';
+	return((DWORD)written);
+}
+
 inline BOOL CreateDirectory(char const * path, void *)
 {
 	return((mkdir(path, 0755) == 0 || errno == EEXIST) ? TRUE : FALSE);
@@ -785,6 +877,48 @@ inline BOOL DeleteFileA(char const * path)
 {
 	return(DeleteFile(path));
 }
+
+// The classic BMP file layout; real Windows headers wrap these the same way so the
+// structures stay exactly 14 and 40 bytes with no compiler-dependent padding.
+#pragma pack(push, 1)
+struct BITMAPFILEHEADER
+{
+	WORD bfType;
+	DWORD bfSize;
+	WORD bfReserved1;
+	WORD bfReserved2;
+	DWORD bfOffBits;
+};
+
+struct BITMAPINFOHEADER
+{
+	DWORD biSize;
+	LONG biWidth;
+	LONG biHeight;
+	WORD biPlanes;
+	WORD biBitCount;
+	DWORD biCompression;
+	DWORD biSizeImage;
+	LONG biXPelsPerMeter;
+	LONG biYPelsPerMeter;
+	DWORD biClrUsed;
+	DWORD biClrImportant;
+};
+
+struct RGBQUAD
+{
+	BYTE rgbBlue;
+	BYTE rgbGreen;
+	BYTE rgbRed;
+	BYTE rgbReserved;
+};
+
+struct BITMAPINFO
+{
+	BITMAPINFOHEADER bmiHeader;
+	RGBQUAD bmiColors[1];
+};
+#pragma pack(pop)
 
 // Emulates MSVC's __declspec(property(...)), which GCC and Clang do not support, by
 // recovering the owner's address from the property's own offset within it.

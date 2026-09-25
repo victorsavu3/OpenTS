@@ -1370,6 +1370,7 @@ void Tactical::Draw_Screen_Text(char const * text)
 	if (text == NULL || !strlen(text)) {
 		return;
 	}
+#ifdef _WIN32
 	if (CompositeSurface->Is_GDI_Backed()) {
 		DSurface * surface = (DSurface *)CompositeSurface;
 		Rect rect = TacticalRect;
@@ -1387,6 +1388,7 @@ void Tactical::Draw_Screen_Text(char const * text)
 			surface->ReleaseDC(hdc);
 		}
 	}
+#endif
 }
 
 

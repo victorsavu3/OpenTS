@@ -110,6 +110,7 @@ DSurface::DSurface(int width, int height) :
 	GDIBuffer(NULL),
 	Pitch(0)
 {
+#if defined(_WIN32)
 	/*
 	 * BITMAPINFO carries room for a single color entry, but a bitfields bitmap is
 	 * described by three masks following the header, so the header is declared with
@@ -158,6 +159,12 @@ DSurface::DSurface(int width, int height) :
 	} else {
 		Pitch = width * 2;
 	}
+#else
+	// No GDI off Windows, so the pixels are a plain heap buffer at the same 16 bit
+	// pitch a DIB section would report; GDIDC stays NULL and GetDC answers accordingly.
+	Pitch = width * 2;
+	GDIBuffer = new char[(size_t)Pitch * height];
+#endif
 }
 
 
@@ -177,6 +184,7 @@ DSurface::DSurface(int width, int height) :
  *=============================================================================================*/
 DSurface::~DSurface(void)
 {
+#if defined(_WIN32)
 	/*
 	 * GDI will not free a bitmap that is still selected into a context, so the one the
 	 * context started with has to go back first.
@@ -194,6 +202,9 @@ DSurface::~DSurface(void)
 		DeleteObject(GDIBitmap);
 		GDIBitmap = NULL;
 	}
+#else
+	delete [] (char *)GDIBuffer;
+#endif
 
 	GDIBuffer = NULL;
 }
@@ -272,11 +283,13 @@ HDC DSurface::GetDC(void)
 /// <returns>int; Always one. The context outlives the call and is reused.</returns>
 int DSurface::ReleaseDC(HDC hdc)
 {
+#if defined(_WIN32)
 	/*
 	 * GDI batches its drawing, so the pixels are not all there until it is flushed.
 	 * Everything else reads them directly.
 	 */
 	GdiFlush();
+#endif
 
 	if (LockCount > 0) {
 		LockCount--;

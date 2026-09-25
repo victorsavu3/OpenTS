@@ -18,11 +18,13 @@
 #include "logic.h"
 #include "mono.h"
 #include "mpu.h"
+#include "mstimer.h"
 #include "ui/rml/rmlrender.h"
 #include "video.h"
 
 #include "bench.hh"
 
+#include <cstdint>
 #include <cstdio>
 #include <imgui.h>
 
@@ -33,6 +35,22 @@ static bool _ShowDemo = false;
 static long long _LastFrameTicks = 0;
 
 static int _CPUSpeed = 0;
+
+
+static std::uint64_t Ticks_Per_Second(void)
+{
+	unsigned int high;
+	unsigned int low = Get_CPU_Rate(high);
+	return(((std::uint64_t)high << 32) | low);
+}
+
+
+static std::uint64_t CPU_Clock_Ticks(void)
+{
+	unsigned int high;
+	unsigned int low = Get_CPU_Clock(high);
+	return(((std::uint64_t)high << 32) | low);
+}
 
 struct UIBenchmarkSample
 {
@@ -250,7 +268,7 @@ static void Sample_Benchmarks(void)
 	}
 
 	_SamplesValid = true;
-	_LastSampleTime = timeGetTime();
+	_LastSampleTime = System_Milliseconds();
 }
 
 
@@ -366,7 +384,7 @@ static void Draw_Benchmark_Window(void)
 		ImGui::TextDisabled("(the monochrome display owns the reset while it is on)");
 	}
 
-	if (Snapshots_In_Use() && (!_SamplesValid || timeGetTime() - _LastSampleTime >= 1000)) {
+	if (Snapshots_In_Use() && (!_SamplesValid || System_Milliseconds() - _LastSampleTime >= 1000)) {
 		Sample_Benchmarks();
 	}
 
@@ -407,7 +425,7 @@ void UIDev_Toggle(UIRmlRenderClass const & render)
 		platform.Renderer_TextureMaxHeight = render.Texture_Limit();
 
 		Build_Key_Map();
-		_CPUSpeed = Get_RDTSC_CPU_Speed();
+		_CPUSpeed = (int)(Ticks_Per_Second() / 1000000ULL);
 		_LastFrameTicks = 0;
 		_SamplesValid = false;
 
@@ -435,15 +453,13 @@ void UIDev_Tick(void)
 		ratio = 1.0f;
 	}
 
-	LARGE_INTEGER now;
-	LARGE_INTEGER frequency;
-	QueryPerformanceCounter(&now);
-	QueryPerformanceFrequency(&frequency);
-	float delta = (_LastFrameTicks == 0 || frequency.QuadPart == 0) ? (1.0f / 60.0f) : (float)(now.QuadPart - _LastFrameTicks) / (float)frequency.QuadPart;
+	std::uint64_t now = CPU_Clock_Ticks();
+	std::uint64_t frequency = Ticks_Per_Second();
+	float delta = (_LastFrameTicks == 0 || frequency == 0) ? (1.0f / 60.0f) : (float)(now - (std::uint64_t)_LastFrameTicks) / (float)frequency;
 	if (delta < 0.0001f) {
 		delta = 0.0001f;
 	}
-	_LastFrameTicks = now.QuadPart;
+	_LastFrameTicks = (long long)now;
 
 	ImGuiIO & io = ImGui::GetIO();
 	io.DisplaySize = ImVec2((float)scale.DestWidth, (float)scale.DestHeight);

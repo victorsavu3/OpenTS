@@ -459,7 +459,11 @@ class TestHostClass : public UIShellHostClass
 
 		virtual int Milliseconds(void) const override
 		{
-			return(Held ? Now : (int)GetTickCount64());
+			if (Held) {
+				return(Now);
+			}
+			static std::chrono::steady_clock::time_point const start = std::chrono::steady_clock::now();
+			return((int)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
 		}
 };
 

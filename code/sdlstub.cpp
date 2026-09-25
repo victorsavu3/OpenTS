@@ -20,8 +20,11 @@
 #include "_tooltip.h"
 #include "_ui.h"
 #include "audio/audioengine.h"
+#include "ccfile.h"
 #include "cctooltip.h"
+#include "convert.h"
 #include "dbgprint.h"
+#include "draw.h"
 #include "except.h"
 #include "gamewindow.h"
 #include "globals.h"
@@ -29,6 +32,7 @@
 #include "keyboard.h"
 #include "misc.h"
 #include "movie.h"
+#include "pcx.h"
 #include "queue.h"
 #include "session.h"
 #include "ui/uishell.h"
@@ -1110,5 +1114,35 @@ int GetSystemMetrics(int index)
 		case SM_CYDRAG: return(4);
 		case SM_SWAPBUTTON: return(0);
 		default: return(0);
+	}
+}
+
+
+/// <summary>
+/// Loads a title screen picture and centers it on the surface.
+/// This routine is used by the startup and scenario loading sequences to put some
+/// artwork on the screen while the game gets itself ready. A paletted picture is
+/// drawn through a converter built from the palette supplied.
+/// </summary>
+/// <param name="name">The name of the picture file to load.</param>
+/// <param name="surface">The surface to draw the title screen upon.</param>
+/// <param name="palette">The palette to load the picture's colors into.</param>
+void Load_Title_Screen(char const * name, Surface * surface, PaletteClass * palette)
+{
+	Surface * load_buffer;
+	CCFileClass file(name);
+	load_buffer = Read_PCX_File(file, palette);
+
+	if (load_buffer) {
+		int x = (surface->Get_Width() - load_buffer->Get_Width()) / 2;
+		int y = (surface->Get_Height() - load_buffer->Get_Height()) / 2;
+		if (palette && load_buffer->Bytes_Per_Pixel() == 1) {
+			ConvertClass * drawer = new ConvertClass(*palette, *palette, *surface);
+			Blit_Block(*surface, *drawer, *load_buffer, load_buffer->Get_Rect(), Point2D(x, y), surface->Get_Rect());
+			delete drawer;
+		} else {
+			surface->Blit_From(surface->Get_Rect(), Rect(x, y, load_buffer->Get_Width(), load_buffer->Get_Height()), *load_buffer, load_buffer->Get_Rect(), load_buffer->Get_Rect());
+		}
+		delete load_buffer;
 	}
 }

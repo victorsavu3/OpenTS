@@ -31,6 +31,7 @@ using DWORD = std::uint32_t;
 using ULONG = std::uint32_t;
 using LONG = std::int32_t;
 using SHORT = std::int16_t;
+using __int64 = std::int64_t;
 using UINT = unsigned int;
 using BOOL = int;
 using VOID = void;
@@ -266,6 +267,10 @@ int MessageBoxIndirect(MSGBOXPARAMS const * params);
 inline BOOL CloseWindow(HWND) { return(TRUE); }
 inline LRESULT DefWindowProcW(HWND, UINT, WPARAM, LPARAM) { return(0); }
 
+// The renderer presents every frame regardless of any OS-level dirty rect, so there is
+// nothing for a repaint request to trigger.
+inline BOOL InvalidateRect(HWND, void const *, BOOL) { return(TRUE); }
+
 // SDL reports display bounds per display rather than a single desktop metric; this answers
 // for the primary display, which is what every caller here already assumes.
 int GetSystemMetrics(int index);
@@ -489,6 +494,7 @@ inline DWORD GetFileAttributes(char const * path)
 	}
 	return(S_ISDIR(info.st_mode) ? FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_NORMAL);
 }
+#define GetFileAttributesA GetFileAttributes
 
 inline BOOL CreateDirectory(char const * path, void *)
 {

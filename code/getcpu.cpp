@@ -49,8 +49,9 @@
 #include <cpuid.h>
 
 // Matches MSVC's __cpuid(int[4], int) signature and eax/ebx/ecx/edx ordering, so the CPUID
-// leaf parsing below needs no change.
-static void __cpuid(int regs[4], int function)
+// leaf parsing below needs no change. Named apart from <cpuid.h>'s own __cpuid macro, which
+// takes five arguments and would otherwise shadow this one.
+static void Query_CPUID(int regs[4], int function)
 {
 	__cpuid_count(function, 0, (unsigned int &)regs[0], (unsigned int &)regs[1],
 		(unsigned int &)regs[2], (unsigned int &)regs[3]);
@@ -97,7 +98,7 @@ void __cdecl CPU_Id(void)
 
 	char cputype = 4;
 
-	__cpuid(regs, 0);
+	Query_CPUID(regs, 0);
 	int const maxleaf = regs[0];
 
 	std::memcpy(&VendorID[0], &regs[1], 4);
@@ -107,7 +108,7 @@ void __cdecl CPU_Id(void)
 	VendorID[13] = '\0';
 
 	if (maxleaf >= 1) {
-		__cpuid(regs, 1);
+		Query_CPUID(regs, 1);
 		cputype = (char)((regs[0] & 0x0F00) >> 8);
 	}
 

@@ -325,6 +325,59 @@ SDL_Window * Handle_Window(HWND window)
 	return(static_cast<SDL_Window *>(window));
 }
 
+
+// Built once from Scancode_To_VK, so a query for a VK this build's fixed layout never
+// produces stays SDL_SCANCODE_UNKNOWN.
+SDL_Scancode VK_To_Scancode(unsigned short vk)
+{
+	static SDL_Scancode table[256];
+	static bool built = false;
+
+	if (!built) {
+		for (unsigned short i = 0; i < 256; i++) {
+			table[i] = SDL_SCANCODE_UNKNOWN;
+		}
+		for (int scancode = SDL_SCANCODE_UNKNOWN; scancode < SDL_SCANCODE_COUNT; scancode++) {
+			unsigned short const mapped = Scancode_To_VK((SDL_Scancode)scancode);
+			if (mapped != VK_NONE && table[mapped] == SDL_SCANCODE_UNKNOWN) {
+				table[mapped] = (SDL_Scancode)scancode;
+			}
+		}
+		built = true;
+	}
+
+	return(table[vk]);
+}
+
+
+bool Is_VK_Down(int vk)
+{
+	switch (vk) {
+		case VK_LBUTTON: return((SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK) != 0);
+		case VK_RBUTTON: return((SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_RMASK) != 0);
+		case VK_MBUTTON: return((SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MMASK) != 0);
+		case VK_SHIFT: case VK_LSHIFT: case VK_RSHIFT:
+			return((SDL_GetModState() & SDL_KMOD_SHIFT) != 0);
+		case VK_CONTROL: case VK_LCONTROL: case VK_RCONTROL:
+			return((SDL_GetModState() & SDL_KMOD_CTRL) != 0);
+		case VK_MENU: case VK_LMENU: case VK_RMENU:
+			return((SDL_GetModState() & SDL_KMOD_ALT) != 0);
+		case VK_CAPITAL:
+			return((SDL_GetModState() & SDL_KMOD_CAPS) != 0);
+		case VK_NUMLOCK:
+			return((SDL_GetModState() & SDL_KMOD_NUM) != 0);
+		default: {
+			SDL_Scancode const scancode = VK_To_Scancode((unsigned short)vk);
+			if (scancode == SDL_SCANCODE_UNKNOWN) {
+				return(false);
+			}
+			int count = 0;
+			bool const * state = SDL_GetKeyboardState(&count);
+			return(scancode < count && state[scancode]);
+		}
+	}
+}
+
 } // namespace
 
 
@@ -374,6 +427,78 @@ int Win_Window_Refresh_Rate(HWND window)
 	}
 
 	return((int)(mode->refresh_rate + 0.5f));
+}
+
+
+HWND SetFocus(HWND window)
+{
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window != nullptr) {
+		SDL_RaiseWindow(sdl_window);
+	}
+
+	return(NULL);
+}
+
+
+SHORT GetKeyState(int vk)
+{
+	return(Is_VK_Down(vk) ? (SHORT)0x8000 : 0);
+}
+
+
+SHORT GetAsyncKeyState(int vk)
+{
+	return(Is_VK_Down(vk) ? (SHORT)0x8000 : 0);
+}
+
+
+UINT MapVirtualKey(UINT code, UINT)
+{
+	return(code);
+}
+
+
+// No dead-key composition; a VK with no direct character (function keys, arrows, and
+// similar) returns 0, matching ToUnicode's own "no translation" result.
+int ToUnicode(UINT vk, UINT, PBYTE keystate, LPWSTR buffer, int buffer_count, UINT)
+{
+	if (buffer_count < 1) {
+		return(0);
+	}
+
+	bool const shifted = (keystate[VK_SHIFT] & 0x80) != 0;
+	wchar_t ch = 0;
+
+	if (vk >= VK_A && vk <= VK_Z) {
+		ch = (wchar_t)(shifted ? vk : vk + ('a' - 'A'));
+	} else if (vk >= VK_0 && vk <= VK_9) {
+		static wchar_t const shifted_digits[] = L")!@#$%^&*(";
+		ch = shifted ? shifted_digits[vk - VK_0] : (wchar_t)vk;
+	} else {
+		switch (vk) {
+			case VK_SPACE: ch = L' '; break;
+			case VK_OEM_MINUS: ch = shifted ? L'_' : L'-'; break;
+			case VK_OEM_PLUS: ch = shifted ? L'+' : L'='; break;
+			case VK_OEM_COMMA: ch = shifted ? L'<' : L','; break;
+			case VK_OEM_PERIOD: ch = shifted ? L'>' : L'.'; break;
+			case VK_OEM_1: ch = shifted ? L':' : L';'; break;
+			case VK_OEM_2: ch = shifted ? L'?' : L'/'; break;
+			case VK_OEM_3: ch = shifted ? L'~' : L'`'; break;
+			case VK_OEM_4: ch = shifted ? L'{' : L'['; break;
+			case VK_OEM_5: ch = shifted ? L'|' : L'\\'; break;
+			case VK_OEM_6: ch = shifted ? L'}' : L']'; break;
+			case VK_OEM_7: ch = shifted ? L'"' : L'\''; break;
+			default: break;
+		}
+	}
+
+	if (ch == 0) {
+		return(0);
+	}
+
+	buffer[0] = ch;
+	return(1);
 }
 
 

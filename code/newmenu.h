@@ -42,7 +42,7 @@ class NewMenuClass
 		int Process_Game_Select(void);
 
 	private:
-		static __forceinline int Game_Select_Loop(NewMenuClass * menu);
+		static WWINLINE int Game_Select_Loop(NewMenuClass * menu);
 		int Display_Game_Select_Menu(char const * section);
 		int Display_Menu(char const * section, DynamicVectorClass<int> & options);
 		int Select_Game_Type(void);

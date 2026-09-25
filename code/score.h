@@ -118,7 +118,7 @@ class ScoreClass {
 		void Timing(void);
 		void DoSound(const char * name, int volume);
 		bool Score_Object_Not_Present(ScoreAnimClass * obj);
-		__forceinline void Wait_For_Print(ScoreAnimClass * obj);
+		WWINLINE void Wait_For_Print(ScoreAnimClass * obj);
 
 		unsigned int Do_Calc(HouseClass * house);
 		void Do_Graphs(void);

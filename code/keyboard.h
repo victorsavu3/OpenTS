@@ -291,13 +291,13 @@ class WWKeyboardClass
 #define VK_NONE_B7	 0xB7
 #define VK_NONE_B8	 0xB8
 #define VK_NONE_B9	 0xB9
-#define VK_NONE_BA	 0xBA //	;
-#define VK_NONE_BB	 0xBB // =
-#define VK_NONE_BC	 0xBC // ,
-#define VK_NONE_BD	 0xBD // -
-#define VK_NONE_BE	 0xBE // .
-#define VK_NONE_BF	 0xBF // /
-#define VK_NONE_C0	 0xC0 // `
+#define VK_OEM_1	 0xBA //	;
+#define VK_OEM_PLUS	 0xBB // =
+#define VK_OEM_COMMA	 0xBC // ,
+#define VK_OEM_MINUS	 0xBD // -
+#define VK_OEM_PERIOD	 0xBE // .
+#define VK_OEM_2	 0xBF // /
+#define VK_OEM_3	 0xC0 // `
 #define VK_NONE_C1	 0xC1
 #define VK_NONE_C2	 0xC2
 #define VK_NONE_C3	 0xC3
@@ -324,10 +324,10 @@ class WWKeyboardClass
 #define VK_NONE_D8	 0xD8
 #define VK_NONE_D9	 0xD9
 #define VK_NONE_DA	 0xDA
-#define VK_NONE_DB	 0xDB // [
-#define VK_NONE_DC	 0xDC // '\'
-#define VK_NONE_DD	 0xDD // ]
-#define VK_NONE_DE	 0xDE // '
+#define VK_OEM_4	 0xDB // [
+#define VK_OEM_5	 0xDC // '\'
+#define VK_OEM_6	 0xDD // ]
+#define VK_OEM_7	 0xDE // '
 #define VK_NONE_DF	 0xDF
 #define VK_NONE_E0	 0xE0
 #define VK_NONE_E1	 0xE1
@@ -540,12 +540,12 @@ enum KeyNumType {
 	KN_9 = VK_9,
 	KN_A = VK_A,
 	KN_B = VK_B,
-	KN_BACKSLASH = VK_NONE_DC,
+	KN_BACKSLASH = VK_OEM_5,
 	KN_BACKSPACE = VK_BACK,
 	KN_C = VK_C,
 	KN_CAPSLOCK = VK_CAPITAL,
 	KN_CENTER = VK_CLEAR,
-	KN_COMMA = VK_NONE_BC,
+	KN_COMMA = VK_OEM_COMMA,
 	KN_D = VK_D,
 	KN_DELETE = VK_DELETE,
 	KN_DOWN = VK_DOWN,
@@ -553,7 +553,7 @@ enum KeyNumType {
 	KN_DOWNRIGHT = VK_NEXT,
 	KN_E = VK_E,
 	KN_END = VK_END,
-	KN_EQUAL = VK_NONE_BB,
+	KN_EQUAL = VK_OEM_PLUS,
 	KN_ESC = VK_ESCAPE,
 	KN_E_DELETE = VK_DELETE,
 	KN_E_DOWN = VK_NUMPAD2,
@@ -579,7 +579,7 @@ enum KeyNumType {
 	KN_F8 = VK_F8,
 	KN_F9 = VK_F9,
 	KN_G = VK_G,
-	KN_GRAVE = VK_NONE_C0,
+	KN_GRAVE = VK_OEM_3,
 	KN_H = VK_H,
 	KN_HOME = VK_HOME,
 	KN_I = VK_I,
@@ -593,26 +593,26 @@ enum KeyNumType {
 	KN_KEYPAD_SLASH = VK_DIVIDE,
 	KN_L = VK_L,
 	KN_LALT = VK_MENU,
-	KN_LBRACKET = VK_NONE_DB,
+	KN_LBRACKET = VK_OEM_4,
 	KN_LCTRL = VK_CONTROL,
 	KN_LEFT = VK_LEFT,
 	KN_LMOUSE = VK_LBUTTON,
 	KN_LSHIFT = VK_SHIFT,
 	KN_M = VK_M,
-	KN_MINUS = VK_NONE_BD,
+	KN_MINUS = VK_OEM_MINUS,
 	KN_N = VK_N,
 	KN_NUMLOCK = VK_NUMLOCK,
 	KN_O = VK_O,
 	KN_P = VK_P,
 	KN_PAUSE = VK_PAUSE,
-	KN_PERIOD = VK_NONE_BE,
+	KN_PERIOD = VK_OEM_PERIOD,
 	KN_PGDN = VK_NEXT,
 	KN_PGUP = VK_PRIOR,
 	KN_PRNTSCRN = VK_PRINT,
 	KN_Q = VK_Q,
 	KN_R = VK_R,
 	KN_RALT = VK_MENU,
-	KN_RBRACKET = VK_NONE_DD,
+	KN_RBRACKET = VK_OEM_6,
 	KN_RCTRL = VK_CONTROL,
 	KN_RETURN = VK_RETURN,
 	KN_RIGHT = VK_RIGHT,
@@ -620,10 +620,10 @@ enum KeyNumType {
 	KN_RSHIFT = VK_SHIFT,
 	KN_S = VK_S,
 	KN_SCROLLLOCK = VK_SCROLL,
-	KN_SEMICOLON = VK_NONE_BA,
-	KN_SLASH = VK_NONE_BF,
+	KN_SEMICOLON = VK_OEM_1,
+	KN_SLASH = VK_OEM_2,
 	KN_SPACE = VK_SPACE,
-	KN_SQUOTE = VK_NONE_DE,
+	KN_SQUOTE = VK_OEM_7,
 	KN_T = VK_T,
 	KN_TAB = VK_TAB,
 	KN_U = VK_U,

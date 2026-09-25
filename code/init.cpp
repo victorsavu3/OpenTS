@@ -205,6 +205,8 @@
 #ifdef _WIN32
 #include <conio.h>
 #include <dos.h>
+#else
+#include <sys/timeb.h>
 #endif
 #include <string>
 #include <unordered_set>
@@ -257,7 +259,9 @@ static void Init_Threads(void);
 void Draw_Version_Text(Surface * surface);
 void Version_Dialog(void);
 
+#ifdef _WIN32
 INT_PTR CALLBACK Rules_Choice_Dialog_Proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+#endif
 
 void Init_Random(void);
 
@@ -580,6 +584,7 @@ int Init_Game(int , char * [])
 /// with the index of the one that the player settled upon.
 /// </summary>
 /// <remarks>The dialog must be created with the vector of rules files as its parameter.</remarks>
+#ifdef _WIN32
 static INT_PTR CALLBACK Rules_Choice_Dialog_Proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
 	char buffer[128];
@@ -628,6 +633,7 @@ static INT_PTR CALLBACK Rules_Choice_Dialog_Proc(HWND window, UINT message, WPAR
 
 	return(0);
 }
+#endif
 
 
 /// <summary>
@@ -858,6 +864,7 @@ static bool Init_Rules(void)
 	if (Rules.Count() == 1) {
 		RuleINI = Rules[0];
 	} else {
+#ifdef _WIN32
 		MouseCursor->Release_Mouse();
 		int rules_choice = DialogBoxParam(ProgramInstance, MAKEINTRESOURCE(IDD_RULES_CHOICE), MainWindow, Rules_Choice_Dialog_Proc, (LPARAM)&Rules);
 		MouseCursor->Capture_Mouse();
@@ -865,6 +872,13 @@ static bool Init_Rules(void)
 		if (rules_choice == -1) {
 			rules_choice = 0;
 		}
+#else
+		/*
+		 * No native dialog on Linux to let the player pick among several rules files;
+		 * the first one found is used, matching what a cancelled Windows dialog does.
+		 */
+		int rules_choice = 0;
+#endif
 
 		RuleINI = Rules[rules_choice];
 	}
@@ -1865,7 +1879,7 @@ void Init_Random(void)
 			Seed = CustomSeed;
 		} else {
 			CryptRandom.Get(&Seed, sizeof(Seed));
-			Seed = GetTickCount();
+			Seed = timeGetTime();
 			//srand(time(NULL));
 			//Seed = rand();
 		}

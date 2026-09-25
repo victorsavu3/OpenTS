@@ -23,10 +23,12 @@
 #include <sys/stat.h>
 
 using BYTE = std::uint8_t;
+using PBYTE = std::uint8_t *;
 using WORD = std::uint16_t;
 using DWORD = std::uint32_t;
 using ULONG = std::uint32_t;
 using LONG = std::int32_t;
+using SHORT = std::int16_t;
 using UINT = unsigned int;
 using BOOL = int;
 using VOID = void;
@@ -61,6 +63,8 @@ using WPARAM = std::uintptr_t;
 using LPARAM = std::intptr_t;
 using LRESULT = std::intptr_t;
 using DWORD_PTR = std::uintptr_t;
+using INT_PTR = std::intptr_t;
+using UINT_PTR = std::uintptr_t;
 
 using LPVOID = void *;
 using LPSTR = char *;
@@ -261,6 +265,19 @@ int GetSystemMetrics(int index);
 inline HDC GetDC(HWND) {return(NULL);}
 inline int ReleaseDC(HWND, HDC) {return(1);}
 
+HWND SetFocus(HWND window);
+
+// A VK already names a physical key in this build, so MapVirtualKey is an identity map and
+// ToUnicode has no dead-key composition.
+SHORT GetKeyState(int vk);
+SHORT GetAsyncKeyState(int vk);
+UINT MapVirtualKey(UINT code, UINT maptype);
+int ToUnicode(UINT vk, UINT scancode, PBYTE keystate, LPWSTR buffer, int buffer_count, UINT flags);
+
+#define IS_HIGH_SURROGATE(wch) ((wch) >= 0xD800 && (wch) <= 0xDBFF)
+#define IS_LOW_SURROGATE(wch) ((wch) >= 0xDC00 && (wch) <= 0xDFFF)
+#define IS_SURROGATE_PAIR(hs, ls) (IS_HIGH_SURROGATE(hs) && IS_LOW_SURROGATE(ls))
+
 // Backs timeGetTime/QueryPerformanceCounter with std::chrono::steady_clock, so the tree's
 // scattered timing call sites (mainloop.cpp, gametime.cpp, video.cpp, and similar) need no
 // change; rmlsystem.cpp already uses steady_clock directly for the same purpose.
@@ -372,6 +389,13 @@ inline BOOL SystemTimeToFileTime(SYSTEMTIME const * st, FILETIME * ft)
 		+ (std::uint64_t)st->wMilliseconds * 10000ULL + OPENTS_FILETIME_UNIX_EPOCH;
 	*ft = OpenTS_Ticks_To_FileTime(ticks);
 	return(TRUE);
+}
+
+inline void GetSystemTime(SYSTEMTIME * st)
+{
+	FILETIME ft;
+	GetSystemTimeAsFileTime(&ft);
+	FileTimeToSystemTime(&ft, st);
 }
 
 // Windows reports this in the process's local time zone; std::chrono's local_t makes that

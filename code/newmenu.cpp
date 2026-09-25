@@ -93,7 +93,7 @@ NewMenuClass::~NewMenuClass(void)
 /// the caller must act upon.
 /// </summary>
 /// <returns>Returns with the menu selection the player made.</returns>
-__forceinline int NewMenuClass::Game_Select_Loop(NewMenuClass * menu)
+WWINLINE int NewMenuClass::Game_Select_Loop(NewMenuClass * menu)
 {
 	int item = 0;
 

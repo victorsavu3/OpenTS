@@ -18,6 +18,7 @@
 #include "ui/uihost.h"
 #include "ui/uireveal.h"
 #include "ui/uiview.h"
+#include "utf8.h"
 
 // windowsx.h defines macros with the names of these RmlUi Element methods.
 #undef GetFirstChild
@@ -1058,6 +1059,7 @@ bool UIShellClass::Feed_Text_Byte(unsigned char byte)
 		return(consumed);
 	}
 
+#if defined(_WIN32)
 	char bytes[2];
 	int count;
 	if (LegacyLead != 0) {
@@ -1081,6 +1083,15 @@ bool UIShellClass::Feed_Text_Byte(unsigned char byte)
 	} else if (converted == 2 && wide[0] >= 0xD800 && wide[0] < 0xDC00 && wide[1] >= 0xDC00 && wide[1] < 0xE000) {
 		code = 0x10000 + (((char32_t)wide[0] - 0xD800) << 10) + ((char32_t)wide[1] - 0xDC00);
 	}
+#else	// _WIN32
+	// The bundled fonts and UTF8::Windows_Code cover the single-byte code pages a legacy
+	// ANSI window used; a double-byte code page has no portable decoder and reaches here as
+	// a replacement character per byte.
+	char32_t code = UTF8::Windows_Code(codepage, byte);
+	if (byte >= 0x80 && code == 0) {
+		code = 0xFFFD;
+	}
+#endif	// _WIN32
 	return(Handle_Text(code));
 }
 

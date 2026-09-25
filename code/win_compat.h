@@ -70,6 +70,7 @@ using LRESULT = std::intptr_t;
 using DWORD_PTR = std::uintptr_t;
 using INT_PTR = std::intptr_t;
 using UINT_PTR = std::uintptr_t;
+using LONG_PTR = std::intptr_t;
 
 using LPVOID = void *;
 using LPSTR = char *;
@@ -127,7 +128,12 @@ using COLORREF = DWORD;
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 #define GET_WHEEL_DELTA_WPARAM(wParam) ((short)HIWORD(wParam))
+#define GET_XBUTTON_WPARAM(wParam) (HIWORD(wParam))
 #define MAKEPOINTS(l) (POINTS{(SHORT)LOWORD(l), (SHORT)HIWORD(l)})
+
+#define XBUTTON1 0x0001
+#define XBUTTON2 0x0002
+#define WHEEL_DELTA 120
 
 // Window message values match winuser.h, though nothing here crosses a real Windows queue.
 #define WM_CREATE          0x0001
@@ -238,6 +244,49 @@ inline LRESULT SendMessage(HWND, UINT, WPARAM, LPARAM) { return(0); }
 
 using ULONGLONG = std::uint64_t;
 using LPCTSTR = char const *;
+
+#define MAKEINTRESOURCEA(i) ((LPSTR)(std::uintptr_t)(WORD)(i))
+#define MAKEINTRESOURCE MAKEINTRESOURCEA
+
+// Standard cursor IDs, named the way LoadCursor(NULL, IDC_*) expects.
+#define IDC_ARROW    MAKEINTRESOURCE(32512)
+#define IDC_IBEAM    MAKEINTRESOURCE(32513)
+#define IDC_WAIT     MAKEINTRESOURCE(32514)
+#define IDC_CROSS    MAKEINTRESOURCE(32515)
+#define IDC_SIZENWSE MAKEINTRESOURCE(32642)
+#define IDC_SIZENESW MAKEINTRESOURCE(32643)
+#define IDC_SIZEWE   MAKEINTRESOURCE(32644)
+#define IDC_SIZENS   MAKEINTRESOURCE(32645)
+#define IDC_SIZEALL  MAKEINTRESOURCE(32646)
+#define IDC_NO       MAKEINTRESOURCE(32648)
+#define IDC_HAND     MAKEINTRESOURCE(32649)
+
+#define GetRValue(c) ((BYTE)(c))
+#define GetGValue(c) ((BYTE)(((WORD)(c)) >> 8))
+#define GetBValue(c) ((BYTE)((c) >> 16))
+
+// Nothing on this build has a window-class-registered cursor, so this always reports none
+// and callers fall back to loading one by ID.
+#define GCLP_HCURSOR (-12)
+inline LONG_PTR GetClassLongPtr(HWND, int) { return(0); }
+
+// Implemented in sdlstub.cpp: maps an IDC_* id to an SDL system cursor and applies it.
+HCURSOR LoadCursor(HINSTANCE, LPCTSTR id);
+void SetCursor(HCURSOR cursor);
+
+#define CP_ACP 0
+#define CP_UTF8 65001
+
+// This build's window never distinguishes ANSI from Unicode, so it always answers as one.
+inline BOOL IsWindowUnicode(HWND) { return(TRUE); }
+
+// SDL always hands text input as UTF-8, so the process codepage is always CP_UTF8 here.
+inline unsigned int GetACP(void) { return(CP_UTF8); }
+
+inline DWORD GetTickCount64(void) { return(timeGetTime()); }
+
+// No Windows installation directory exists to look a system font up in.
+inline unsigned int GetWindowsDirectoryA(char *, unsigned int) { return(0); }
 
 struct ULARGE_INTEGER
 {

@@ -12,6 +12,11 @@
 #include "opents_strings.h"
 #include "ui/uihost.h"
 #include "ui/uiunicode.h"
+#include "win.h"
+
+#ifndef _WIN32
+#include <SDL3/SDL.h>
+#endif
 
 #include <cstdio>
 #include <cstring>
@@ -138,6 +143,7 @@ void UIRmlSystemClass::SetMouseCursor(Rml::String const & name)
 
 void UIRmlSystemClass::SetClipboardText(Rml::String const & text)
 {
+#ifdef _WIN32
 	std::wstring wide;
 	if (!UI_UTF8_To_UTF16(text, wide)) {
 		return;
@@ -165,6 +171,9 @@ void UIRmlSystemClass::SetClipboardText(Rml::String const & text)
 		GlobalFree(memory);
 	}
 	CloseClipboard();
+#else
+	SDL_SetClipboardText(text.c_str());
+#endif
 }
 
 
@@ -172,6 +181,7 @@ void UIRmlSystemClass::GetClipboardText(Rml::String & text)
 {
 	text.clear();
 
+#ifdef _WIN32
 	if (!OpenClipboard(Host.Main_Window())) {
 		return;
 	}
@@ -195,4 +205,13 @@ void UIRmlSystemClass::GetClipboardText(Rml::String & text)
 	}
 
 	CloseClipboard();
+#else
+	char * clipboard = SDL_GetClipboardText();
+	if (clipboard != nullptr) {
+		if (std::strlen(clipboard) <= UI_CLIPBOARD_MAX_BYTES) {
+			text = clipboard;
+		}
+		SDL_free(clipboard);
+	}
+#endif
 }

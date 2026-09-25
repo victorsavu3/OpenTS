@@ -2151,7 +2151,7 @@ void UnitClass::Per_Cell_Process(PCPType why)
 		**	Unit entering a transport vehicle will break radio contact
 		**	and attach itself to the transporter.
 		*/
-		TechnoTypeClass const * ttype = (techno != NULL) ? techno->TClass : NULL;
+		TechnoTypeClass const * ttype = (techno != NULL) ? techno->Techno_Type_Class() : NULL;
 
 		// NavCom is not tested here: a walking passenger clears it before it arrives, so
 		// the radio contact is what identifies the transport.

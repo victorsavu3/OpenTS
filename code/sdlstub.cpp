@@ -591,6 +591,49 @@ HWND GetCapture(void)
 }
 
 
+namespace {
+SDL_Cursor * SystemCursors[SDL_SYSTEM_CURSOR_COUNT] = {};
+
+SDL_Cursor * Cached_System_Cursor(SDL_SystemCursor shape)
+{
+	if (SystemCursors[shape] == nullptr) {
+		SystemCursors[shape] = SDL_CreateSystemCursor(shape);
+	}
+	return(SystemCursors[shape]);
+}
+} // namespace
+
+
+HCURSOR LoadCursor(HINSTANCE, LPCTSTR id)
+{
+	WORD const value = (WORD)(std::uintptr_t)id;
+
+	SDL_SystemCursor shape = SDL_SYSTEM_CURSOR_DEFAULT;
+	switch (value) {
+		case 32512: shape = SDL_SYSTEM_CURSOR_DEFAULT; break;
+		case 32513: shape = SDL_SYSTEM_CURSOR_TEXT; break;
+		case 32514: shape = SDL_SYSTEM_CURSOR_WAIT; break;
+		case 32515: shape = SDL_SYSTEM_CURSOR_CROSSHAIR; break;
+		case 32642: shape = SDL_SYSTEM_CURSOR_NWSE_RESIZE; break;
+		case 32643: shape = SDL_SYSTEM_CURSOR_NESW_RESIZE; break;
+		case 32644: shape = SDL_SYSTEM_CURSOR_EW_RESIZE; break;
+		case 32645: shape = SDL_SYSTEM_CURSOR_NS_RESIZE; break;
+		case 32646: shape = SDL_SYSTEM_CURSOR_MOVE; break;
+		case 32648: shape = SDL_SYSTEM_CURSOR_NOT_ALLOWED; break;
+		case 32649: shape = SDL_SYSTEM_CURSOR_POINTER; break;
+		default: break;
+	}
+
+	return((HCURSOR)Cached_System_Cursor(shape));
+}
+
+
+void SetCursor(HCURSOR cursor)
+{
+	SDL_SetCursor((SDL_Cursor *)cursor);
+}
+
+
 UINT_PTR SetTimer(HWND window, UINT_PTR id, UINT elapse, void *)
 {
 	for (TimerEntry & timer : Timers) {

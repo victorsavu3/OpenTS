@@ -9,6 +9,7 @@
 
 #include "ui/uishell.h"
 
+#include "keyboard.h"
 #include "ui/dev/uidev.h"
 #include "ui/rml/rmlfont.h"
 #include "ui/rml/rmlkeys.h"
@@ -1058,6 +1059,7 @@ bool UIShellClass::Feed_Text_Byte(unsigned char byte)
 		return(consumed);
 	}
 
+#ifdef _WIN32
 	char bytes[2];
 	int count;
 	if (LegacyLead != 0) {
@@ -1082,6 +1084,11 @@ bool UIShellClass::Feed_Text_Byte(unsigned char byte)
 		code = 0x10000 + (((char32_t)wide[0] - 0xD800) << 10) + ((char32_t)wide[1] - 0xDC00);
 	}
 	return(Handle_Text(code));
+#else
+	// GetACP() always reports CP_UTF8 on this build, so the branch above always returns
+	// first; this legacy DBCS codepage path never runs.
+	return(false);
+#endif
 }
 
 

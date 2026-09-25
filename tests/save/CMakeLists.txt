@@ -16,6 +16,9 @@ opents_add_test(SaveTest
     SOURCES savetest.cpp
     ENGINE
         crc.cpp
+        file.cpp
+        file_posix.cpp
+        file_win.cpp
         savefile.cpp
     DEFINITIONS ${SAVETEST_DEFINITIONS}
     LIBRARIES lzo

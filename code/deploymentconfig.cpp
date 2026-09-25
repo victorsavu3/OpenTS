@@ -20,7 +20,11 @@ static char const * const ConfigName = "OPENTS.INI";
 /*
  * The folders the file itself is looked for in, relative to the data directory.
  */
+#ifdef _WIN32
 static char const * const ConfigProbes[] = {"", "INI\\", "MIX\\"};
+#else
+static char const * const ConfigProbes[] = {"", "INI/", "MIX/"};
+#endif
 
 
 void DeploymentConfigClass::Read_INI(INIClass const & ini)

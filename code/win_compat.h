@@ -12,6 +12,8 @@
 // Defines only the Win32 names the inherited tree references directly; code/keyboard.h
 // defines the VK_* table itself and does not depend on this header.
 
+#include "file.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <cerrno>
@@ -865,9 +867,13 @@ inline BOOL FindClose(HANDLE handle)
 	return(TRUE);
 }
 
+// RawFileClass may have written this file in lowercase (Set_Name's own case folding), so
+// the real name is resolved the same way before removing it.
 inline BOOL DeleteFile(char const * path)
 {
-	return(std::remove(path) == 0 ? TRUE : FALSE);
+	std::string resolved(path);
+	Resolve_File(resolved.data());
+	return(std::remove(resolved.c_str()) == 0 ? TRUE : FALSE);
 }
 
 inline BOOL CopyFile(char const * existing, char const * dest, BOOL fail_if_exists)

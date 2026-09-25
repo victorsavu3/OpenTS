@@ -328,10 +328,10 @@ class WWKeyboardClass
 #define VK_OEM_5	 0xDC // '\'
 #define VK_OEM_6	 0xDD // ]
 #define VK_OEM_7	 0xDE // '
-#define VK_NONE_DF	 0xDF
+#define VK_OEM_8	 0xDF
 #define VK_NONE_E0	 0xE0
 #define VK_NONE_E1	 0xE1
-#define VK_NONE_E2	 0xE2
+#define VK_OEM_102	 0xE2
 #define VK_NONE_E3	 0xE3
 #define VK_NONE_E4	 0xE4
 #define VK_NONE_E5	 0xE5

@@ -15,6 +15,7 @@
 #include "bench.h"
 #include "dbgprint.h"
 #include "globals.h"
+#include "keyboard.h"
 #include "logic.h"
 #include "mono.h"
 #include "mpu.h"

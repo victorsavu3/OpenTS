@@ -289,8 +289,13 @@ inline DWORD timeGetTime(void)
 	return((DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
 }
 
-struct LARGE_INTEGER
+union LARGE_INTEGER
 {
+	struct
+	{
+		DWORD LowPart;
+		LONG HighPart;
+	};
 	std::int64_t QuadPart;
 };
 

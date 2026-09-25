@@ -113,6 +113,7 @@
 #define _strnicmp strncasecmp
 #define memicmp  strncasecmp
 #define __cdecl
+#define _cdecl
 
 #include <cctype>
 #include <cstdio>

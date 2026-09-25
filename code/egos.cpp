@@ -37,8 +37,6 @@
 
 #include "always.h"
 
-#include <windows.h>
-
 #include "egos.h"
 
 #include "_keyboar.h"
@@ -190,9 +188,11 @@ void EgoClass::Render(bool fresh)
 	if ((YPos < LogicalSurface->Get_Height() && YPos > LogicalSurface->Get_Height() - 52) || YPos >= -16 && YPos <= 32 || fresh) {
 		static HFONT font;
 		if (font == NULL) {
+#if defined(_WIN32)
 			HDC dc = GetDC(MainWindow);
 			font = WS_Get_Font(dc, "Arial", 0, 16, 1);
 			ReleaseDC(MainWindow, dc);
+#endif
 		}
 
 		Rect textrect(XPos, YPos, VideoModeWidth, 0);

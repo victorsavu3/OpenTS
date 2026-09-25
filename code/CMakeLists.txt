@@ -45,9 +45,16 @@ foreach(f ${OPENTS_RAW})
         set(EXCLUDED TRUE)
     endif()
 
-    # The Windows UI input adapter is fed by the window procedure; another target's host
-    # feeds the shell itself.
+    # The Win32 UI input adapter targeted the free-function shell API that
+    # UIShellClass::Handle_Window_Message superseded; the file itself is gone, and nothing
+    # takes its place, since the Win32 host calls Handle_Window_Message directly.
     if(OPENTS_POSIX AND f MATCHES "/ui/uiwin32\\.cpp$")
+        set(EXCLUDED TRUE)
+    endif()
+
+    # Tree view drag-and-drop and Windows version helpers with no caller outside
+    # themselves; nothing links this file on the other targets.
+    if(OPENTS_POSIX AND f MATCHES "/winfix\\.cpp$")
         set(EXCLUDED TRUE)
     endif()
 
@@ -246,7 +253,6 @@ set_source_files_properties(${OPENTS_BGFX_SOURCES} PROPERTIES
         "${BGFX_ROOT}/include;${CMAKE_SOURCE_DIR}/thirdparty/bgfx.cmake/bx/include"
     COMPILE_DEFINITIONS
         "BX_CONFIG_DEBUG=$<IF:$<CONFIG:Debug>,1,$<BOOL:${BX_CONFIG_DEBUG}>>"
-    COMPILE_OPTIONS "/Zc:preprocessor"
 )
 
 # The frame quad's shaders come from the imgui example and the overlay's from the debug
@@ -320,16 +326,23 @@ target_link_libraries(OpenTS PRIVATE
     lzo
     RmlUi::Core
     imgui
-    comctl32
-    dbghelp
-    iphlpapi
-    psapi
-    version
-    winmm
-    ws2_32
-    kernel32 user32 gdi32 winspool comdlg32 advapi32 shell32
-    odbc32 odbccp32
+    freetype
 )
+
+# The tactical caption draws with FreeType directly, as well as through RmlUi.
+if(WIN32)
+    target_link_libraries(OpenTS PRIVATE
+        comctl32
+        dbghelp
+        iphlpapi
+        psapi
+        version
+        winmm
+        ws2_32
+        kernel32 user32 gdi32 winspool comdlg32 advapi32 shell32
+        odbc32 odbccp32
+    )
+endif()
 
 # bimg's decoder is built for the texture tools the engine does not ship, so it is excluded
 # from the default build. The UI shell decodes document images with it, which brings it back.

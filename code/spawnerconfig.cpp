@@ -21,7 +21,6 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
 #include <vector>
 
 
@@ -462,7 +461,16 @@ void SpawnerConfigClass::Read_INI(INIClass const & ini)
 	LoadSaveGame = ini.Get_Bool(SETTINGS, "LoadSaveGame", LoadSaveGame);
 
 	// Saves are opened by name in the saved-games folder, so a path is cut to its last part.
-	SaveGameName = std::filesystem::path(Read_Text(ini, SETTINGS, "SaveGameName", SaveGameName)).filename().string();
+	// _splitpath is used rather than std::filesystem::path because the file a client's own
+	// config names may carry a Windows-style path regardless of the host's own platform, and
+	// std::filesystem::path only recognizes the host's own separator and drive syntax.
+	{
+		std::string const raw = Read_Text(ini, SETTINGS, "SaveGameName", SaveGameName);
+		char fname[_MAX_FNAME];
+		char ext[_MAX_EXT];
+		_splitpath(raw.c_str(), nullptr, nullptr, fname, ext);
+		SaveGameName = std::string(fname) + ext;
+	}
 
 	AutoSaveInterval = ini.Get_Int(SETTINGS, "AutoSaveGame", AutoSaveInterval);
 

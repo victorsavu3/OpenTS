@@ -42,6 +42,7 @@
 #include "xstraw.h"
 
 #include <algorithm>
+#include <cstdarg>
 #include <ctime>
 
 

@@ -32,6 +32,7 @@
 #include "mapgen.h"
 #include "mplayer.h"
 #include "msgbox.h"
+#include "msgloop.h"
 #include "netdlg.h"
 #include "netshare.h"
 #include "nettiming.h"
@@ -397,11 +398,15 @@ bool Net2_Service_Lobby(void)
 	Ipx.Service();
 	Title_Screen_Restore();
 
+#ifdef _WIN32
 	MSG msg;
 	while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
 		TranslateMessage(&msg);
 		DispatchMessageW(&msg);
 	}
+#else
+	Windows_Message_Handler();
+#endif
 
 	Call_Back();
 	if (_netresponse != UI_NET_NONE) {
@@ -742,6 +747,7 @@ int Net2SetHouseAndColor(char *who, int house, int color)
 /// <remarks>Be sure the buffer is big enough to hold an entire encrypted serial number.</remarks>
 static void Get_Serial_From_Registry(char * serial, char const * reg_key)
 {
+#ifdef _WIN32
 	if (reg_key && strlen(reg_key) != 0) {
 		HKEY rKey;
 		char keyname[256];
@@ -753,6 +759,11 @@ static void Get_Serial_From_Registry(char * serial, char const * reg_key)
 			RegCloseKey(rKey);
 		}
 	}
+#else
+	// No registry on Linux; a machine with no registered serial already leaves the
+	// buffer untouched on Windows, so this matches that "not found" behavior.
+	(void)reg_key;
+#endif
 	serial[SERIAL_MAX-1] = 0;
 }
 

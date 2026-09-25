@@ -10,7 +10,8 @@
 // Exercises the debug logger without the engine or any game data: many threads writing at
 // once, the size limit, and the console sink.
 
-#include <windows.h>
+#include "always.h"
+#include "win.h"
 
 #include <algorithm>
 #include <chrono>
@@ -102,7 +103,7 @@ bool Line_Is_Intact(std::string const & raw)
 int main(void)
 {
 	std::string const directory = Log_Directory();
-	std::string const report_path = directory + "\\logstress-report.txt";
+	std::string const report_path = directory + "/logstress-report.txt";
 
 	CreateDirectoryA(directory.c_str(), NULL);
 	Report = std::fopen(report_path.c_str(), "wb");
@@ -272,7 +273,7 @@ int main(void)
 	Check(intact == (THREAD_COUNT + 1) * MESSAGES_PER_THREAD, "every message reached the log");
 
 	// Pruning must leave a file that is younger than the threshold alone.
-	std::string const keep = directory + "\\DEBUG_keepme.LOG";
+	std::string const keep = directory + "/DEBUG_keepme.LOG";
 	FILE * young = std::fopen(keep.c_str(), "wb");
 	if (young != NULL) {
 		std::fputs("young\n", young);
@@ -285,11 +286,14 @@ int main(void)
 	Check(!Delete_Files_Older_Than(directory.c_str(), "DEBUG_*.LOG", 91), "pruning refuses an absurd age");
 	Check(!Delete_Files_Older_Than(NULL, "DEBUG_*.LOG", 14), "pruning refuses a null directory");
 
+#ifdef _WIN32
 	// A console subsystem program already owns a console, which would turn AllocConsole away.
 	FreeConsole();
+#endif
 	Debug_Init_Console();
 	DebugString("the console sink is reachable\n");
 
+#ifdef _WIN32
 	HWND const console = GetConsoleWindow();
 	Check(console != NULL, "console allocated after detaching");
 
@@ -299,6 +303,7 @@ int main(void)
 		close_removed = GetMenuState(GetSystemMenu(console, FALSE), SC_CLOSE, MF_BYCOMMAND) == UINT(-1);
 	}
 	Check(close_removed, "console close button disabled");
+#endif
 
 	Say(Failures == 0 ? "\nPASSED\n" : "\nFAILED\n");
 

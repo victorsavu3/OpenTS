@@ -12,6 +12,8 @@
 // removed; this replays each one and compares the decoded bytes and the stream state left
 // behind. Needs no game data.
 
+#include "always.h"
+
 #include <cstdio>
 #include <cstring>
 

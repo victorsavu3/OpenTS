@@ -12,6 +12,8 @@
 // what a malformed number reads as, which repeats are reported, and how fast a big file
 // loads.
 
+#include "always.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdio>

@@ -11,6 +11,8 @@
  * disclaimers apply; see LICENSE.md.
  ******************************************************************************/
 
+#include "always.h"
+
 #include <stddef.h>
 #include <string.h>
 

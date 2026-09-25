@@ -13,6 +13,8 @@
 // with one another when they were recorded, so one set of vectors covers all of them.
 // Needs no game data.
 
+#include "always.h"
+
 #include <cstdio>
 #include <cstring>
 

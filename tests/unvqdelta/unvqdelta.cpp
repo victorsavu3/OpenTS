@@ -14,6 +14,8 @@
 //
 // Run with --emit to print a replacement golden table.
 
+#include "always.h"
+
 #include <cstdio>
 #include <cstring>
 

@@ -14,6 +14,8 @@
 // sample cleanly, the chunk-at-a-time path equals the whole decode, and a WAV
 // decodes through miniaudio. Needs no game data.
 
+#include "always.h"
+
 #include "audio/audiodecode.h"
 #include "soscomp.h"
 

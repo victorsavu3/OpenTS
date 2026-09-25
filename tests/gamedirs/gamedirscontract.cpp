@@ -11,7 +11,8 @@
 // is handed, the scan that covers every folder, and where a player's own files are read
 // from and written to. Every file this uses is one the harness makes itself.
 
-#include <windows.h>
+#include "always.h"
+#include "win.h"
 
 #include <cstdio>
 #include <string>

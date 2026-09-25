@@ -11,11 +11,16 @@
 // detection used to be hand-written assembly, so the point is to confirm the C++ reports the
 // same family and vendor the instruction does. Needs no game data.
 
-#include <windows.h>
+#include "always.h"
+
+#ifdef _MSC_VER
+#include <intrin.h>
+#else
+#include <cpuid.h>
+#endif
 
 #include <cstdio>
 #include <cstring>
-#include <intrin.h>
 
 #include "getcpu.h"
 #include "mpu.h"
@@ -35,6 +40,18 @@ void Check(bool condition, char const * what)
 }
 
 
+// Matches MSVC's __cpuid(int[4], int) signature and eax/ebx/ecx/edx ordering.
+void Query_CPUID(int regs[4], int function)
+{
+#ifdef _MSC_VER
+	__cpuid(regs, function);
+#else
+	__cpuid_count(function, 0, (unsigned int &)regs[0], (unsigned int &)regs[1],
+		(unsigned int &)regs[2], (unsigned int &)regs[3]);
+#endif
+}
+
+
 /*
  * The detection reads the base family field only, as the assembly did. An extended family is
  * deliberately not folded in, so this reference computes the value the same narrow way.
@@ -42,7 +59,7 @@ void Check(bool condition, char const * what)
 int Reference_Family(void)
 {
 	int regs[4];
-	__cpuid(regs, 1);
+	Query_CPUID(regs, 1);
 	return((regs[0] & 0x0F00) >> 8);
 }
 
@@ -53,7 +70,7 @@ int Reference_Family(void)
 int main(void)
 {
 	int regs[4];
-	__cpuid(regs, 0);
+	Query_CPUID(regs, 0);
 
 	char vendor[16];
 	std::memcpy(&vendor[0], &regs[1], 4);

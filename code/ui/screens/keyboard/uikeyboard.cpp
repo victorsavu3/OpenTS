@@ -7,6 +7,8 @@
  * See LICENSE.md for applicable additional terms and warranty disclaimers.
  ******************************************************************************/
 
+#include "always.h"
+
 #include "ui/screens/keyboard/uikeyboard.h"
 
 #include "ui/rml/rmlkeys.h"

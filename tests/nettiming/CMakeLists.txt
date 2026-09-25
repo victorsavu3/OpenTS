@@ -25,8 +25,9 @@ add_executable(NetConnection
 )
 
 target_compile_definitions(NetConnection PRIVATE NOMINMAX)
+# The charset flags are MSVC's, so a harness built by another compiler takes its default.
 set_source_files_properties("${OPENTS_ROOT}/code/combuf.cpp" PROPERTIES
-    COMPILE_OPTIONS "/source-charset:437;/execution-charset:437"
+    COMPILE_OPTIONS "$<$<CXX_COMPILER_ID:MSVC>:/source-charset:437;/execution-charset:437>"
 )
 
 foreach(target NetTiming NetConnection)
@@ -34,10 +35,14 @@ foreach(target NetTiming NetConnection)
     target_include_directories(${target} PRIVATE "${OPENTS_ROOT}/code")
     target_compile_definitions(${target} PRIVATE WIN32 _WINDOWS _MBCS)
     target_compile_options(${target} PRIVATE
-        $<$<CONFIG:Debug>:/MTd /EHsc /Zc:__cplusplus>
-        $<$<CONFIG:Release>:/MT /EHsc /Zc:__cplusplus>
+        $<$<CXX_COMPILER_ID:MSVC>:$<$<CONFIG:Debug>:/MTd>>
+        $<$<CXX_COMPILER_ID:MSVC>:$<$<CONFIG:Release>:/MT>>
+        $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
+        $<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>
     )
-    target_link_libraries(${target} PRIVATE kernel32 winmm)
+    if(MSVC)
+        target_link_libraries(${target} PRIVATE kernel32 winmm)
+    endif()
     set_target_properties(${target} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )

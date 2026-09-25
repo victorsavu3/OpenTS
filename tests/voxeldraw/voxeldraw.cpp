@@ -14,6 +14,8 @@
 // dispatch never indexed, so until that table was repointed none of this code had ever run and
 // nothing would have noticed it drawing the wrong thing. Needs no game data.
 
+#include "always.h"
+
 #include <cstdio>
 #include <cstring>
 #include <climits>

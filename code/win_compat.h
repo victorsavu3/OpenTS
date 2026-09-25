@@ -17,6 +17,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <dirent.h>
@@ -130,11 +131,21 @@ using COLORREF = DWORD;
 #define MAKEWORD(a, b) ((WORD)(((BYTE)(a)) | (((WORD)((BYTE)(b))) << 8)))
 #define MAKELONG(a, b) ((LONG)(((WORD)(a)) | (((DWORD)((WORD)(b))) << 16)))
 #define MAKELPARAM(a, b) ((LPARAM)MAKELONG(a, b))
+#define MAKEWPARAM(a, b) ((WPARAM)MAKELONG(a, b))
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 #define GET_WHEEL_DELTA_WPARAM(wParam) ((short)HIWORD(wParam))
 #define GET_XBUTTON_WPARAM(wParam) (HIWORD(wParam))
 #define MAKEPOINTS(l) (POINTS{(SHORT)LOWORD(l), (SHORT)HIWORD(l)})
+
+// Mouse-button-state flags carried in a WM_MOUSEMOVE/WM_*BUTTON* message's wParam.
+#define MK_LBUTTON   0x0001
+#define MK_RBUTTON   0x0002
+#define MK_SHIFT     0x0004
+#define MK_CONTROL   0x0008
+#define MK_MBUTTON   0x0010
+#define MK_XBUTTON1  0x0020
+#define MK_XBUTTON2  0x0040
 
 #define XBUTTON1 0x0001
 #define XBUTTON2 0x0002
@@ -713,11 +724,13 @@ inline DWORD GetModuleFileName(HMODULE, char * buffer, DWORD buffer_size)
 	buffer[written] = '\0';
 	return((DWORD)written);
 }
+#define GetModuleFileNameA GetModuleFileName
 
 inline BOOL CreateDirectory(char const * path, void *)
 {
 	return((mkdir(path, 0755) == 0 || errno == EEXIST) ? TRUE : FALSE);
 }
+#define CreateDirectoryA CreateDirectory
 
 struct WIN32_FIND_DATA
 {
@@ -986,6 +999,38 @@ inline BOOL DeleteFileA(char const * path)
 inline BOOL SetCurrentDirectory(char const * path)
 {
 	return(chdir(path) == 0 ? TRUE : FALSE);
+}
+
+inline DWORD GetCurrentDirectory(DWORD size, char * buffer)
+{
+	if (getcwd(buffer, size) == nullptr) {
+		return(0);
+	}
+	return((DWORD)std::strlen(buffer));
+}
+
+inline BOOL RemoveDirectory(char const * path)
+{
+	return(rmdir(path) == 0 ? TRUE : FALSE);
+}
+
+inline DWORD GetTempPath(DWORD size, char * buffer)
+{
+	char const * tmpdir = std::getenv("TMPDIR");
+	if (tmpdir == nullptr || tmpdir[0] == '\0') {
+		tmpdir = "/tmp";
+	}
+
+	int written = std::snprintf(buffer, size, "%s/", tmpdir);
+	if (written < 0 || (DWORD)written >= size) {
+		return(0);
+	}
+	return((DWORD)written);
+}
+
+inline DWORD GetCurrentProcessId(void)
+{
+	return((DWORD)getpid());
 }
 
 // Language.dll never loads on this build, so nothing real is ever handed here to free.

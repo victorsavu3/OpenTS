@@ -11,6 +11,8 @@
 // produced. The vectors in unvqgolden.h were recorded from that assembly before it was
 // removed. Needs no game data.
 
+#include "always.h"
+
 #include <cstdio>
 #include <cstring>
 

@@ -2,6 +2,10 @@
 # socket that reaches no network, so the send and receive passes can be exercised without
 # opening a session.
 
+if(WIN32)
+    set(SOCKETUDP_LIBRARIES ws2_32)
+endif()
+
 opents_add_test(SocketUdp
     NAME socketudp
     SOURCES socketudp.cpp
@@ -13,6 +17,6 @@ opents_add_test(SocketUdp
         wspudp.cpp
     INCLUDES ${OPENTS_GENERATED_DIR}
     DEFINITIONS WIN32 _WINDOWS _MBCS NOMINMAX
-    LIBRARIES ws2_32
+    LIBRARIES ${SOCKETUDP_LIBRARIES}
     STAMP
 )

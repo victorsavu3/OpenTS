@@ -11,6 +11,8 @@
  * disclaimers apply; see LICENSE.md.
  ******************************************************************************/
 
+#include "always.h"
+
 #include "audio/audiodecode.h"
 
 #include "miniaudio.h"

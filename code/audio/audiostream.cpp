@@ -7,6 +7,8 @@
  * See LICENSE.md for applicable additional terms and warranty disclaimers.
  ******************************************************************************/
 
+#include "always.h"
+
 #include "audio/audiostream.h"
 
 #include "audio/audiodevice.h"

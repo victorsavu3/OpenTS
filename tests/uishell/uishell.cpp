@@ -9,6 +9,8 @@
 
 #include "ui/uishell.h"
 
+#include "keyboard.h"
+
 #include "ui/rml/rmlfontfon.h"
 #include "ui/rml/rmlimage.h"
 #include "ui/rml/rmlkeys.h"

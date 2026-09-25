@@ -4,6 +4,13 @@
 # from the source tree and the string table comes from the per-build stamp target, so the
 # test needs no run directory. The shell runs over a host the harness controls, with a stub
 # for the developer overlays.
+
+# rmlsystem.cpp's clipboard is SDL3-backed on this platform, matching the engine.
+set(UISHELL_LIBRARIES RmlUi::Core freetype imgui)
+if(NOT WIN32)
+    list(APPEND UISHELL_LIBRARIES SDL3::SDL3)
+endif()
+
 opents_add_test(UIShell
     NAME uishell
     SOURCES uishell.cpp uidevstub.cpp uitexturestub.cpp
@@ -47,6 +54,6 @@ opents_add_test(UIShell
         ui/screens/waitbox/uiwaitbox.cpp
     INCLUDES "${OPENTS_GENERATED_DIR}"
     DEFINITIONS WIN32 _WINDOWS NOMINMAX "OPENTS_UI_DIR=\"${CMAKE_SOURCE_DIR}/ui\""
-    LIBRARIES RmlUi::Core freetype imgui
+    LIBRARIES ${UISHELL_LIBRARIES}
     STAMP
 )

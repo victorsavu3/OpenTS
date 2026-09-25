@@ -7,6 +7,8 @@
  * See LICENSE.md for applicable additional terms and warranty disclaimers.
  ******************************************************************************/
 
+#include "always.h"
+
 #include "ui/rml/rmlview.h"
 
 #include "ui/uishell.h"

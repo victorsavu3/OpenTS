@@ -11,7 +11,8 @@
 // supplies when there is no file, where the file is looked for and which copy wins, and what
 // a written key changes. Every file this uses is one the harness makes itself.
 
-#include <windows.h>
+#include "always.h"
+#include "win.h"
 
 #include <cstdio>
 #include <cstring>

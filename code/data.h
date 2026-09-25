@@ -35,7 +35,6 @@
 #include "iff.h"
 #include "win.h"
 
-#include <windows.h>
 #include "wwfile.h"
 
 /// An ID of -1 or 0 is not valid for Fetch_String.

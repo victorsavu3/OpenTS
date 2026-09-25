@@ -35,13 +35,14 @@
 
 #include "always.h"
 
-#include <windows.h>
-
 #include "data.h"
 
+#include "languagestrings.h"
 #include "utf8.h"
 
+#if defined(_MSC_VER)
 #include <new.h>
+#endif
 
 HINSTANCE LanguageResources;
 
@@ -203,13 +204,19 @@ struct SRecord {
  *=============================================================================================*/
 char const * Fetch_String(int id)
 {
-	static SRecord _buffers[128];
-	static int _time = 0;
-
 	/*
 	**	Determine if the string ID requested is valid. If not then return an empty string pointer.
 	*/
 	if (id == -1 || id == TXT_NONE) return("");
+
+#if !defined(_WIN32)
+	// The game's own text is compiled in everywhere; no module load or code page
+	// conversion is needed off Windows.
+	char const * text = Language_String((unsigned int)id);
+	return(text != NULL ? text : "");
+#else
+	static SRecord _buffers[128];
+	static int _time = 0;
 
 	/*
 	**	Adjust the 'time stamp' tracking value. This is an artificial value used merely to track
@@ -265,6 +272,7 @@ char const * Fetch_String(int id)
 		UTF8::Copy(stringptr, sizeof(_buffers[oldest].String), text.c_str());
 	}
 	return(stringptr);
+#endif
 }
 
 
@@ -325,6 +333,10 @@ void * Hires_Load(FileClass & file)
 /// <returns>bool; Are the language resources available?</returns>
 bool Init_Language_Resources(bool show_error)
 {
+#if !defined(_WIN32)
+	// The game's own text is compiled in; there is no library to load off Windows.
+	return(true);
+#else
 	if (LanguageResources == NULL) {
 
 		LanguageResources = LoadLibrary("Language.dll");
@@ -346,6 +358,7 @@ bool Init_Language_Resources(bool show_error)
 	}
 
 	return(true);
+#endif
 }
 
 
@@ -360,6 +373,15 @@ bool Init_Language_Resources(bool show_error)
 /// <remarks>Be sure that the destination buffer is big enough to hold the composed text.</remarks>
 void Get_Language_Version(char *version_string)
 {
+	if (version_string == NULL) {
+		return;
+	}
+
+	version_string[0] = '\0';
+
+#if defined(_WIN32)
+	// The version resource is a PE concept read through the Windows version API; there is
+	// no portable equivalent, so the string stays empty off Windows.
 	INT dwSize;
 	LPVOID pFileInfo;
 	UINT puInfoLen;
@@ -374,44 +396,41 @@ void Get_Language_Version(char *version_string)
 	char szQuery[128];
 	char szFile[MAX_PATH];
 
-	if (version_string != NULL) {
-		version_string[0] = '\0';
+	if (LanguageResources != NULL && GetModuleFileName(LanguageResources, szFile, sizeof(szFile)) > 0) {
 
-		if (LanguageResources != NULL && GetModuleFileName(LanguageResources, szFile, sizeof(szFile)) > 0) {
+		dwHandle = 1;
+		dwSize = GetFileVersionInfoSize(szFile, &dwHandle);
 
-			dwHandle = 1;
-			dwSize = GetFileVersionInfoSize(szFile, &dwHandle);
+		if (dwSize > 0) {
+			pFileInfo = new char[dwSize];
 
-			if (dwSize > 0) {
-				pFileInfo = new char[dwSize];
+			if (pFileInfo != NULL) {
+				if (GetFileVersionInfo(szFile, dwHandle, dwSize, pFileInfo)) {
 
-				if (pFileInfo != NULL) {
-					if (GetFileVersionInfo(szFile, dwHandle, dwSize, pFileInfo)) {
+					VerQueryValue(pFileInfo, TEXT("\\VarFileInfo\\Translation"), (LPVOID *)&pvInfo, &puInfoLen);
 
-						VerQueryValue(pFileInfo, TEXT("\\VarFileInfo\\Translation"), (LPVOID *)&pvInfo, &puInfoLen);
+					if (puInfoLen > 0) {
+
+						sprintf(szQuery, TEXT("\\StringFileInfo\\%04X%04X\\InternalName"), pvInfo->wLanguage, pvInfo->wCodePage);
+						VerQueryValue(pFileInfo, szQuery, (LPVOID *)&pcData, &puInfoLen);
 
 						if (puInfoLen > 0) {
 
-							sprintf(szQuery, TEXT("\\StringFileInfo\\%04X%04X\\InternalName"), pvInfo->wLanguage, pvInfo->wCodePage);
+							sprintf(version_string, "Language: %s ", pcData);
+							sprintf(szQuery, TEXT("\\StringFileInfo\\%04X%04X\\FileVersion"), pvInfo->wLanguage, pvInfo->wCodePage);
+
 							VerQueryValue(pFileInfo, szQuery, (LPVOID *)&pcData, &puInfoLen);
 
 							if (puInfoLen > 0) {
-
-								sprintf(version_string, "Language: %s ", pcData);
-								sprintf(szQuery, TEXT("\\StringFileInfo\\%04X%04X\\FileVersion"), pvInfo->wLanguage, pvInfo->wCodePage);
-
-								VerQueryValue(pFileInfo, szQuery, (LPVOID *)&pcData, &puInfoLen);
-
-								if (puInfoLen > 0) {
-									strcat(version_string, pcData);
-								}
+								strcat(version_string, pcData);
 							}
 						}
 					}
-
-					delete [] pFileInfo;
 				}
+
+				delete [] pFileInfo;
 			}
 		}
 	}
+#endif
 }

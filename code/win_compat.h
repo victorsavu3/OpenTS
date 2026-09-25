@@ -455,15 +455,6 @@ inline void GetSystemTime(SYSTEMTIME * st)
 	FileTimeToSystemTime(&ft, st);
 }
 
-inline void GetLocalTime(SYSTEMTIME * st)
-{
-	FILETIME ft;
-	FILETIME local;
-	GetSystemTimeAsFileTime(&ft);
-	FileTimeToLocalFileTime(&ft, &local);
-	FileTimeToSystemTime(&local, st);
-}
-
 // Logged for the out-of-sync report only; the x87 control-word format it names does not
 // carry over to this build's ABI, so the query side always reads zero.
 inline unsigned int _controlfp(unsigned int, unsigned int)
@@ -488,6 +479,15 @@ inline BOOL FileTimeToLocalFileTime(FILETIME const * ft, FILETIME * local)
 		+ (ticks % 10000000ULL) + OPENTS_FILETIME_UNIX_EPOCH;
 	*local = OpenTS_Ticks_To_FileTime(new_ticks);
 	return(TRUE);
+}
+
+inline void GetLocalTime(SYSTEMTIME * st)
+{
+	FILETIME ft;
+	FILETIME local;
+	GetSystemTimeAsFileTime(&ft);
+	FileTimeToLocalFileTime(&ft, &local);
+	FileTimeToSystemTime(&local, st);
 }
 
 using LCID = DWORD;

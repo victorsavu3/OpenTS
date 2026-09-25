@@ -34,6 +34,7 @@
 
 #include "house.hh"
 #include "opents_version.h"
+#include "platform/file.h"
 #include "platform/filetime.h"
 
 #include <cstddef>

@@ -51,6 +51,8 @@
 #include "init.h"
 #include "language/language.h"
 #include "msgbox.h"
+#include "platform/file.h"
+#include "platform/filetime.h"
 #include "saveload.h"
 #include "savemgr.h"
 #include "savever.h"
@@ -62,7 +64,6 @@
 #include "ui/uiview.h"
 #include "utf8.h"
 #include "win.h"
-#include <windowsx.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -171,7 +172,8 @@ bool LoadOptionsClass::Delete(void)
 
 static bool Saved_Game_Exists(char const * name)
 {
-	return(GetFileAttributes(Saved_Game_Name(name).c_str()) != INVALID_FILE_ATTRIBUTES);
+	PlatformFileInfoType info;
+	return(Platform_File_Info(Saved_Game_Name(name).c_str(), info));
 }
 
 
@@ -406,7 +408,6 @@ void LoadOptionsClass::Clear_List(void)
 void LoadOptionsClass::Gather_Files(void)
 {
 	FileEntryClass * fdata = NULL;  // for adding entries to 'Files'
-	WIN32_FIND_DATAA ff;            // for FindFirstFile
 
 	/*
 	**	Make sure the list is empty
@@ -430,9 +431,7 @@ void LoadOptionsClass::Gather_Files(void)
 			fdata->Num = -1;
 			strcpy(fdata->PlayerName, Session.Handle);
 		}
-		SYSTEMTIME time;
-		GetSystemTime(&time);
-		SystemTimeToFileTime(&time, &fdata->DateTime);
+		fdata->DateTime = File_Time_Now();
 		fdata->Type = Session.Type;
 		fdata->Valid = false;
 		Files.Add(fdata);
@@ -444,31 +443,24 @@ void LoadOptionsClass::Gather_Files(void)
 	/*
 	**	Find all savegame files
 	*/
-	std::vector<WIN32_FIND_DATAA> found;
-
-	HANDLE hFind = FindFirstFile(Saved_Game_Name(buffer).c_str(), &ff);
-
-	if (hFind != INVALID_HANDLE_VALUE) {
-		do {
-			if ((ff.dwFileAttributes & (FILE_ATTRIBUTE_TEMPORARY|FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_SYSTEM|FILE_ATTRIBUTE_HIDDEN)) != 0) {
-				continue;
-			}
-			found.push_back(ff);
-		} while (FindNextFile(hFind, &ff));
-
-		FindClose(hFind);
+	std::vector<PlatformFileInfoType> found;
+	for (PlatformFileInfoType & entry : Platform_Find_Files(Saved_Game_Name(buffer).c_str())) {
+		if (entry.IsDirectory || entry.IsHidden) {
+			continue;
+		}
+		found.push_back(std::move(entry));
 	}
 
 	// Newest first, so a bounded scan reads the headers of the files that matter.
-	std::sort(found.begin(), found.end(), [](WIN32_FIND_DATAA const & a, WIN32_FIND_DATAA const & b) {
-		return(CompareFileTime(&a.ftLastWriteTime, &b.ftLastWriteTime) > 0);
+	std::sort(found.begin(), found.end(), [](PlatformFileInfoType const & a, PlatformFileInfoType const & b) {
+		return(a.Modified > b.Modified);
 	});
 	if (found.size() > Scan_Limit()) {
 		found.resize(Scan_Limit());
 	}
 
 	fdata = NULL;
-	for (WIN32_FIND_DATAA & record : found) {
+	for (PlatformFileInfoType const & record : found) {
 		if (fdata == NULL) {
 			fdata = new FileEntryClass;
 		}
@@ -502,16 +494,17 @@ bool LoadOptionsClass::Stamp_Strings(FileEntryClass const & entry, char * date, 
 	date[0] = '\0';
 	timeofday[0] = '\0';
 
-	if (entry.DateTime.dwHighDateTime == -1 && entry.DateTime.dwLowDateTime == -1) {
+	if (entry.DateTime.Ticks == UINT64_MAX) {
 		return(false);
 	}
 
-	FILETIME ft;
-	SYSTEMTIME time;
-	FileTimeToLocalFileTime(&entry.DateTime, &ft);
-	FileTimeToSystemTime(&ft, &time);
-	GetDateFormat(LANG_USER_DEFAULT, TIME_NOMINUTESORSECONDS, &time, NULL, date, (int)datesize);
-	GetTimeFormat(LANG_USER_DEFAULT, TIME_NOSECONDS, &time, NULL, timeofday, (int)timesize);
+	CalendarTimeType calendar;
+	if (!Local_Calendar_Time(entry.DateTime, calendar)) {
+		return(false);
+	}
+
+	snprintf(date, datesize, "%02d/%02d/%02d", calendar.Month, calendar.Day, calendar.Year % 100);
+	snprintf(timeofday, timesize, "%02d:%02d", calendar.Hour, calendar.Minute);
 	return(true);
 }
 
@@ -543,23 +536,16 @@ bool LoadOptionsClass::Files_Present(void)
 	char pattern[64];
 	snprintf(pattern, sizeof(pattern), "*.%3s", Extension);
 
-	WIN32_FIND_DATAA find_data;
-	HANDLE hFind = FindFirstFile(Saved_Game_Name(pattern).c_str(), &find_data);
+	for (PlatformFileInfoType const & found : Platform_Find_Files(Saved_Game_Name(pattern).c_str())) {
+		if (found.IsDirectory || found.IsHidden) {
+			continue;
+		}
 
-	if (hFind != INVALID_HANDLE_VALUE) {
-		do {
-			if ((find_data.dwFileAttributes & (FILE_ATTRIBUTE_TEMPORARY|FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_SYSTEM|FILE_ATTRIBUTE_HIDDEN)) != 0) {
-				continue;
-			}
-
-			FileEntryClass entry;
-			if (Read_File(&entry, &find_data) == true) {
-				files_found = true;
-				break;
-			}
-		} while (FindNextFile(hFind, &find_data));
-
-		FindClose(hFind);
+		FileEntryClass entry;
+		if (Read_File(&entry, &found) == true) {
+			files_found = true;
+			break;
+		}
 	}
 
 	return(files_found);
@@ -588,8 +574,8 @@ int __cdecl LoadOptionsClass::Compare(const void * p1, const void * p2)
 	fe1 = *((FileEntryClass **)p1);
 	fe2 = *((FileEntryClass **)p2);
 
-	int res = CompareFileTime(&fe1->DateTime, &fe2->DateTime);
-	return(-res);
+	if (fe1->DateTime == fe2->DateTime) return(0);
+	return(fe1->DateTime > fe2->DateTime ? -1 : 1);
 }
 
 
@@ -645,10 +631,7 @@ int LoadOptionsClass::Save_Confirmation(void) const
 /// <returns>bool; Was the file deleted?</returns>
 bool LoadOptionsClass::Delete_File(const char * file_name)
 {
-	if (DeleteFile(Saved_Game_Name(file_name).c_str()) == TRUE) {
-		return(true);
-	}
-	return(false);
+	return(Platform_Remove_File(Saved_Game_Name(file_name).c_str()));
 }
 
 
@@ -661,7 +644,7 @@ bool LoadOptionsClass::Delete_File(const char * file_name)
 /// <param name="fdata">The list entry to fill in.</param>
 /// <param name="ff">The find record naming the file to examine.</param>
 /// <returns>bool; Was a usable save game found in the file?</returns>
-bool LoadOptionsClass::Read_File(FileEntryClass * fdata, WIN32_FIND_DATAA * ff)
+bool LoadOptionsClass::Read_File(FileEntryClass * fdata, PlatformFileInfoType const * ff)
 {
 	if (fdata == NULL && ff == NULL) {
 		return(false);
@@ -672,7 +655,7 @@ bool LoadOptionsClass::Read_File(FileEntryClass * fdata, WIN32_FIND_DATAA * ff)
 	/*
 	 * get the game's info;
 	 */
-	bool ok = Get_Savefile_Info(ff->cFileName, &savever);
+	bool ok = Get_Savefile_Info(ff->Name.c_str(), &savever);
 	if (!ok) {
 		return(false);
 	}
@@ -687,13 +670,9 @@ bool LoadOptionsClass::Read_File(FileEntryClass * fdata, WIN32_FIND_DATAA * ff)
 	fdata->Scenario = savever.Get_Scenario_Number();
 	fdata->Num = savever.Get_Campaign_Number();
 	fdata->Type = (GameType)savever.Get_Game_Type();
-	strcpy(fdata->Filename, ff->cFileName);
+	strcpy(fdata->Filename, ff->Name.c_str());
 	strcpy(fdata->PlayerName, savever.Get_Player_House());
-	if (strlen(fdata->Filename) == 0) {
-		strcpy(fdata->Filename, ff->cAlternateFileName);
-	}
-	fdata->DateTime.dwHighDateTime = ff->ftLastWriteTime.dwHighDateTime;
-	fdata->DateTime.dwLowDateTime = ff->ftLastWriteTime.dwLowDateTime;
+	fdata->DateTime = ff->Modified;
 	return(true);
 }
 
@@ -718,9 +697,9 @@ bool MultiplayerLoadOptionsClass::Load_File(const char * file_name)
 /// <summary>
 /// Lists a numbered save of this kind of game and nothing else.
 /// </summary>
-bool MultiplayerLoadOptionsClass::Read_File(FileEntryClass * entry, WIN32_FIND_DATAA * ff)
+bool MultiplayerLoadOptionsClass::Read_File(FileEntryClass * entry, PlatformFileInfoType const * ff)
 {
-	if (entry == NULL || ff == NULL || Multiplayer_Save_Slot(ff->cFileName) < 0) {
+	if (entry == NULL || ff == NULL || Multiplayer_Save_Slot(ff->Name.c_str()) < 0) {
 		return(false);
 	}
 	return(LoadOptionsClass::Read_File(entry, ff) && entry->Type == Session.Type);

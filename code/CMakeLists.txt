@@ -49,7 +49,9 @@ endforeach()
 # On the experimental Linux build, drop the files that have no non-Windows
 # implementation and add the SDL3-backed ones in their place. IPX transport is
 # legacy and dead on modern networks on every platform, so it stays
-# Windows-only rather than being ported.
+# Windows-only rather than being ported. winfix.cpp's TreeView/ListView/WinHelp
+# fixups exist only for the retired Win32 dialog layer's own callers, none of
+# which build on this platform, so it stays Windows-only too.
 # ---------------------------------------------------------
 #
 if(OPENTS_EXPERIMENTAL_LINUX)
@@ -62,6 +64,7 @@ if(OPENTS_EXPERIMENTAL_LINUX)
         "${CMAKE_CURRENT_SOURCE_DIR}/ipxconn.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/ipxgconn.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/ipxmgr.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/winfix.cpp"
     )
     list(REMOVE_ITEM OPENTS_SRC ${OPENTS_WINDOWS_ONLY_SRC})
     list(APPEND OPENTS_SRC

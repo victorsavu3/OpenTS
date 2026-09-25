@@ -617,7 +617,7 @@ bool Create_Reinforcement(TeamTypeClass const * teamtype, FootClass * object, Ce
 				Coord coord = Map[newcell].Cell_Coord() - Coord(0, 0, 400);
 				placed = object->Unlimbo(coord, desiredfacing.As_Dir256());
 				if (placed) {
-					object->PositionCoord += Coord(0, 0, -CELL_LEPTON - object->Height);
+					object->Set_Coord(object->Get_Coord() + Coord(0, 0, -CELL_LEPTON - object->Height));
 					object->Assign_Destination(&Map[newcell]);
 					object->Set_Speed(1);
 					object->Locomotion->Move_To(newcell.As_Coord());

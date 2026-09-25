@@ -669,6 +669,96 @@ inline BOOL CopyFile(char const * existing, char const * dest, BOOL fail_if_exis
 	return(ok ? TRUE : FALSE);
 }
 
+#define GENERIC_READ  0x80000000u
+#define GENERIC_WRITE 0x40000000u
+#define FILE_SHARE_READ  0x00000001u
+#define FILE_SHARE_WRITE 0x00000002u
+#define OPEN_EXISTING 3u
+#define CREATE_ALWAYS 2u
+#define MOVEFILE_REPLACE_EXISTING 0x00000001u
+#define INVALID_FILE_SIZE ((DWORD)0xFFFFFFFFu)
+
+// Every caller here opens either an existing file for reading or a fresh one for writing,
+// so only those two GENERIC_*/disposition combinations are recognized.
+inline HANDLE CreateFileA(char const * path, DWORD access, DWORD, void const *, DWORD disposition, DWORD, HANDLE)
+{
+	char const * mode;
+	if ((access & GENERIC_WRITE) != 0 && disposition == CREATE_ALWAYS) {
+		mode = "wb";
+	} else if ((access & GENERIC_READ) != 0 && disposition == OPEN_EXISTING) {
+		mode = "rb";
+	} else {
+		return(INVALID_HANDLE_VALUE);
+	}
+
+	std::FILE * file = std::fopen(path, mode);
+	return(file != nullptr ? (HANDLE)file : INVALID_HANDLE_VALUE);
+}
+#define CreateFile CreateFileA
+
+inline BOOL ReadFile(HANDLE file, void * buffer, DWORD length, DWORD * got, void const *)
+{
+	std::size_t const read_count = std::fread(buffer, 1, length, (std::FILE *)file);
+	if (got != nullptr) {
+		*got = (DWORD)read_count;
+	}
+	return(std::ferror((std::FILE *)file) == 0 ? TRUE : FALSE);
+}
+
+inline BOOL WriteFile(HANDLE file, void const * buffer, DWORD length, DWORD * written, void const *)
+{
+	std::size_t const write_count = std::fwrite(buffer, 1, length, (std::FILE *)file);
+	if (written != nullptr) {
+		*written = (DWORD)write_count;
+	}
+	return((DWORD)write_count == length ? TRUE : FALSE);
+}
+
+inline BOOL FlushFileBuffers(HANDLE file)
+{
+	return(std::fflush((std::FILE *)file) == 0 ? TRUE : FALSE);
+}
+
+// Only ever called on a handle CreateFileA returned, so closing it is always an fclose.
+inline BOOL CloseHandle(HANDLE file)
+{
+	if (file == nullptr || file == INVALID_HANDLE_VALUE) {
+		return(FALSE);
+	}
+	return(std::fclose((std::FILE *)file) == 0 ? TRUE : FALSE);
+}
+
+inline DWORD GetFileSize(HANDLE file, DWORD * high)
+{
+	std::FILE * const stream = (std::FILE *)file;
+	long const current = std::ftell(stream);
+	if (current < 0 || std::fseek(stream, 0, SEEK_END) != 0) {
+		return(INVALID_FILE_SIZE);
+	}
+
+	long const size = std::ftell(stream);
+	std::fseek(stream, current, SEEK_SET);
+	if (size < 0) {
+		return(INVALID_FILE_SIZE);
+	}
+
+	if (high != nullptr) {
+		*high = 0;
+	}
+	return((DWORD)size);
+}
+
+inline BOOL MoveFileExA(char const * existing, char const * dest, DWORD)
+{
+	return(std::rename(existing, dest) == 0 ? TRUE : FALSE);
+}
+#define MoveFileEx MoveFileExA
+
+inline BOOL DeleteFileA(char const * path)
+{
+	return(DeleteFile(path));
+}
+
 // Emulates MSVC's __declspec(property(...)), which GCC and Clang do not support, by
 // recovering the owner's address from the property's own offset within it.
 #define OPENTS_PROPERTY_PUSH \

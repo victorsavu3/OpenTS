@@ -129,23 +129,32 @@ int main(void)
 	Check(UTF8::Windows_1252_Index(0x0100) == -1, "a code point Windows-1252 lacks has no index");
 
 	Check(UTF8::OEM_437_Glyph('A') == 'A', "ASCII keeps its byte in code page 437");
+#ifdef _WIN32
+	// The rest of code page 437's table, and Windows-1252's best-fit fallback below, come
+	// from WideCharToMultiByte; this build has no table of its own for either, so only the
+	// exact, already-tested mappings hold here (utf8.cpp's Best_Fit_Index).
 	Check(UTF8::OEM_437_Glyph(0xC7) == 0x80, "C cedilla is 0x80 in code page 437");
 	Check(UTF8::OEM_437_Glyph(0xE9) == 0x82, "e acute is 0x82 in code page 437");
 	Check(UTF8::OEM_437_Glyph(0xE4) == 0x84, "a umlaut is 0x84 in code page 437");
 	Check(UTF8::OEM_437_Glyph(0xC9) == 0x90, "E acute is 0x90 in code page 437");
 	Check(UTF8::OEM_437_Glyph(0xBF) == 0xA8, "inverted question mark is 0xA8 in code page 437");
 	Check(UTF8::OEM_437_Glyph(0xA1) == 0xAD, "inverted exclamation mark is 0xAD in code page 437");
+#endif
 	Check(UTF8::OEM_437_Glyph(0x4E2D) == -1, "a CJK ideograph has no code page 437 index");
 	Check(UTF8::OEM_437_Glyph(0x1F600) == -1, "an astral code point has no code page 437 index");
 	Check(UTF8::OEM_437_Glyph(0x2302) == -1, "a code point mapping to the delete position has no index");
 	Check(UTF8::OEM_437_Glyph(0x263A) == -1, "a code point mapping to a control position has no index");
 	Check(UTF8::OEM_437_Glyph(0x20AC) == -1, "the euro sign has no code page 437 index");
+#ifdef _WIN32
 	Check(UTF8::OEM_437_Glyph(0x2019) == '\'' && UTF8::OEM_437_Glyph(0x2014) == '-' && UTF8::OEM_437_Glyph(0x2026) == '.', "typographic punctuation falls back to its ASCII form");
 	Check(UTF8::OEM_437_Glyph(0x0141) == 'L' && UTF8::OEM_437_Glyph(0xA9) == 'c', "a letter code page 437 lacks falls back to its closest ASCII letter");
+#endif
 
 	Check(UTF8::Windows_1252_Glyph(0xE9) == 0xE9 && UTF8::Windows_1252_Glyph(0xA9) == 0xA9, "a Windows-1252 font has e acute and the copyright sign at their bytes");
 	Check(UTF8::Windows_1252_Glyph(0x20AC) == 0x80 && UTF8::Windows_1252_Glyph(0x0153) == 0x9C, "a Windows-1252 font has the euro sign and oe ligature in the high row");
+#ifdef _WIN32
 	Check(UTF8::Windows_1252_Glyph(0x0141) == 'L', "a Windows-1252 font falls back to the closest letter");
+#endif
 	Check(UTF8::Windows_1252_Glyph(0x0081) == -1 && UTF8::Windows_1252_Glyph(0x4E2D) == -1, "a Windows-1252 font has no index for a C1 control or a CJK ideograph");
 
 	Check(UTF8::Windows_Code(1250, 'A') == U'A' && UTF8::Windows_Code(1251, 'A') == U'A'

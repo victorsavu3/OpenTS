@@ -53,6 +53,10 @@
 #include <string>
 #include <vector>
 
+#ifndef _WIN32
+#include <SDL3/SDL.h>
+#endif
+
 #undef GetFirstChild
 #undef GetNextSibling
 
@@ -5178,6 +5182,14 @@ void Test_Shell(void)
 
 int main(void)
 {
+#ifndef _WIN32
+	// The clipboard check below is SDL3-backed on this platform (rmlsystem.cpp), and SDL3
+	// refuses every clipboard call before its video subsystem has started; "dummy" needs no
+	// real display and keeps the check deterministic under CI.
+	SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
+	SDL_InitSubSystem(SDL_INIT_VIDEO);
+#endif
+
 	Test_FreeType();
 	Test_ImGui();
 	Test_Coordinates();

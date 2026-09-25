@@ -19,6 +19,7 @@
 #include "ui/uihost.h"
 #include "ui/uireveal.h"
 #include "ui/uiview.h"
+#include "utf8.h"
 
 // windowsx.h defines macros with the names of these RmlUi Element methods.
 #undef GetFirstChild
@@ -1085,9 +1086,13 @@ bool UIShellClass::Feed_Text_Byte(unsigned char byte)
 	}
 	return(Handle_Text(code));
 #else
-	// GetACP() always reports CP_UTF8 on this build, so the branch above always returns
-	// first; this legacy DBCS codepage path never runs.
-	return(false);
+	// A page or byte utf8.cpp's table lacks is not consumed; that covers every double-byte
+	// code page too, since nothing here tracks a DBCS lead byte on this platform.
+	char32_t code = UTF8::Windows_Code(codepage, byte);
+	if (code == 0) {
+		return(false);
+	}
+	return(Handle_Text(code));
 #endif
 }
 

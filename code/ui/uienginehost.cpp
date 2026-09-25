@@ -20,10 +20,12 @@
 #include "dbgprint.h"
 #include "globals.h"
 #include "goptions.h"
+#include "hostwindow.h"
 #include "keyboard.h"
 #include "mainloop.h"
 #include "mixfile.h"
 #include "movies.h"
+#include "mstimer.h"
 #include "msgloop.h"
 #include "rules.h"
 #include "session.h"
@@ -43,11 +45,13 @@ std::string UI_Color_Text(COLORREF color)
 }
 
 
+#if defined(_WIN32)
 static HCURSOR Window_Cursor(void)
 {
 	HCURSOR cursor = (HCURSOR)GetClassLongPtr(MainWindow, GCLP_HCURSOR);
 	return(cursor != NULL ? cursor : LoadCursor(NULL, IDC_ARROW));
 }
+#endif	// _WIN32
 
 
 class UIEngineHostClass : public UIShellHostClass
@@ -55,7 +59,11 @@ class UIEngineHostClass : public UIShellHostClass
 	public:
 		virtual HWND Main_Window(void) const override
 		{
+#if defined(_WIN32)
 			return(MainWindow);
+#else
+			return(nullptr);
+#endif
 		}
 
 		virtual UIFrameRect Frame(void) const override
@@ -145,27 +153,28 @@ class UIEngineHostClass : public UIShellHostClass
 
 		virtual void Focus_Main_Window(void) override
 		{
-			SetFocus(MainWindow);
+			Host_Focus_Window();
 		}
 
 		virtual bool Take_Capture(void) override
 		{
-			if (GetCapture() == MainWindow) {
+			if (Host_Pointer_Is_Captured()) {
 				return(false);
 			}
-			SetCapture(MainWindow);
+			Host_Capture_Pointer();
 			return(true);
 		}
 
 		virtual void Release_Capture(void) override
 		{
-			if (GetCapture() == MainWindow) {
-				ReleaseCapture();
+			if (Host_Pointer_Is_Captured()) {
+				Host_Release_Pointer();
 			}
 		}
 
 		virtual bool Screen_To_Client(int & x, int & y) const override
 		{
+#if defined(_WIN32)
 			POINT point;
 			point.x = x;
 			point.y = y;
@@ -175,27 +184,27 @@ class UIEngineHostClass : public UIShellHostClass
 			x = point.x;
 			y = point.y;
 			return(true);
+#else
+			// The mouse-wheel messages that carry screen rather than client coordinates
+			// reach here only through Handle_Window_Message, which the SDL host does not
+			// yet feed; nothing depends on a real conversion until it does.
+			return(true);
+#endif
 		}
 
 		virtual bool Key_Down(int virtualkey) const override
 		{
-			if (GetSystemMetrics(SM_SWAPBUTTON) != 0) {
-				if (virtualkey == VK_LBUTTON) {
-					virtualkey = VK_RBUTTON;
-				} else if (virtualkey == VK_RBUTTON) {
-					virtualkey = VK_LBUTTON;
-				}
-			}
-			return((GetAsyncKeyState(virtualkey) & 0x8000) != 0);
+			return(Host_Key_Is_Down((unsigned short)virtualkey));
 		}
 
 		virtual bool Key_Toggled(int virtualkey) const override
 		{
-			return((GetKeyState(virtualkey) & 1) != 0);
+			return(Host_Key_Toggled((unsigned short)virtualkey));
 		}
 
 		virtual std::string System_Font_Path(char const * face) const override
 		{
+#if defined(_WIN32)
 			char directory[MAX_PATH];
 			unsigned int length = GetWindowsDirectoryA(directory, MAX_PATH);
 			if (length == 0 || length >= MAX_PATH) {
@@ -208,20 +217,35 @@ class UIEngineHostClass : public UIShellHostClass
 			}
 
 			return(path);
+#else
+			// No system font directory is searched off Windows; UIFontEngineClass falls
+			// back to the bundled font when this comes back empty.
+			(void)face;
+			return(std::string());
+#endif
 		}
 
 		virtual bool Window_Is_Unicode(void) const override
 		{
+#if defined(_WIN32)
 			return(IsWindowUnicode(MainWindow) != FALSE);
+#else
+			return(true);
+#endif
 		}
 
 		virtual unsigned int Text_Code_Page(void) const override
 		{
+#if defined(_WIN32)
 			return(GetACP());
+#else
+			return(CP_UTF8);
+#endif
 		}
 
 		virtual void Apply_Cursor(UICursor cursor) override
 		{
+#if defined(_WIN32)
 			LPCTSTR shape = NULL;
 			switch (cursor) {
 				case UI_CURSOR_TEXT:
@@ -252,13 +276,20 @@ class UIEngineHostClass : public UIShellHostClass
 					break;
 			}
 			SetCursor(shape != NULL ? LoadCursor(NULL, shape) : Window_Cursor());
+#else
+			// A system pointer shape for RmlUi's CSS cursor states awaits the SDL host's
+			// own cursor wiring; the game's own art cursor (wincursor.h) is unaffected.
+			(void)cursor;
+#endif
 		}
 
 		virtual void Restore_Game_Cursor(void) override
 		{
 			Win_Cursor_Refresh();
 			if (!Win_Cursor_Handle_Set_Cursor()) {
+#if defined(_WIN32)
 				SetCursor(Window_Cursor());
+#endif
 			}
 		}
 
@@ -269,7 +300,7 @@ class UIEngineHostClass : public UIShellHostClass
 
 		virtual int Milliseconds(void) const override
 		{
-			return((int)GetTickCount64());
+			return((int)System_Milliseconds());
 		}
 
 		virtual void Log(char const * text) override

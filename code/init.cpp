@@ -198,7 +198,6 @@
 #include "vqoption.h"
 #include "wave.h"
 #include "waypoint.h"
-#include "winfix.h"
 #include "winstub.h"
 #include "wsproto.h"
 #include "wspudp.h"
@@ -209,7 +208,6 @@
 
 #include <algorithm>
 #include <ctime>
-#include <dos.h>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -261,7 +259,9 @@ static void Init_Threads(void);
 void Draw_Version_Text(Surface * surface);
 void Version_Dialog(void);
 
+#if defined(_WIN32)
 INT_PTR CALLBACK Rules_Choice_Dialog_Proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
+#endif
 
 void Init_Random(void);
 
@@ -584,6 +584,7 @@ int Init_Game(int , char * [])
 /// with the index of the one that the player settled upon.
 /// </summary>
 /// <remarks>The dialog must be created with the vector of rules files as its parameter.</remarks>
+#if defined(_WIN32)
 static INT_PTR CALLBACK Rules_Choice_Dialog_Proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
 	char buffer[128];
@@ -632,6 +633,7 @@ static INT_PTR CALLBACK Rules_Choice_Dialog_Proc(HWND window, UINT message, WPAR
 
 	return(0);
 }
+#endif
 
 
 /// <summary>
@@ -859,6 +861,7 @@ static bool Init_Rules(void)
 		}
 	}
 
+#if defined(_WIN32)
 	if (Rules.Count() == 1) {
 		RuleINI = Rules[0];
 	} else {
@@ -872,6 +875,11 @@ static bool Init_Rules(void)
 
 		RuleINI = Rules[rules_choice];
 	}
+#else
+	// Choosing among several deployments' rules files has no portable dialog; the first
+	// one found is used, as picking Cancel on the Windows dialog already did.
+	RuleINI = Rules[0];
+#endif
 
 	Rule->Color_Schemes(*RuleINI);
 	Rule->Do_Movies(ArtINI);
@@ -1854,12 +1862,11 @@ void Init_Random(void)
 	#else
 
 		/*
-		**	Gather some "random" bits from the DOS mode timer.
+		**	Gather some "random" bits from the system timer.
 		*/
-		struct timeb t;
-		ftime(&t);
-		CryptRandom.Seed_Byte(t.millitm);
-		CryptRandom.Seed_Byte(t.time);
+		unsigned int now = System_Milliseconds();
+		CryptRandom.Seed_Byte((char)now);
+		CryptRandom.Seed_Byte((char)(now >> 8));
 	#endif
 
 		/*
@@ -2947,11 +2954,9 @@ int Main_Menu(unsigned int timeout)
 		retval = (MainMenuKeyResult != SEL_NONE) ? MainMenuKeyResult : SEL_EXIT;
 	}
 
-	SYSTEMTIME stamp;
-	GetSystemTime(&stamp);
-	CryptRandom.Seed_Byte(stamp.wMilliseconds);
+	CryptRandom.Seed_Byte((char)System_Milliseconds());
 
-	SetFocus(MainWindow);
+	Host_Focus_Window();
 	return(retval);
 }
 

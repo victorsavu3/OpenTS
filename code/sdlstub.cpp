@@ -536,6 +536,29 @@ int ToUnicode(UINT vk, UINT, PBYTE keystate, LPWSTR buffer, int buffer_count, UI
 }
 
 
+// Callers build lparam the way a real WM_KEYDOWN would carry it, with the VK in bits 16-23;
+// SDL's own scancode name stands in for the localized key name Windows would look up.
+int GetKeyNameText(LONG lparam, char * buffer, int buffer_count)
+{
+	if (buffer_count < 1) {
+		return(0);
+	}
+
+	unsigned short const vk = (unsigned short)((lparam >> 16) & 0xFF);
+	SDL_Scancode const scancode = VK_To_Scancode(vk);
+	char const * const name = scancode != SDL_SCANCODE_UNKNOWN ? SDL_GetScancodeName(scancode) : "";
+
+	if (name == nullptr || name[0] == '\0') {
+		buffer[0] = '\0';
+		return(0);
+	}
+
+	std::strncpy(buffer, name, (std::size_t)buffer_count - 1);
+	buffer[buffer_count - 1] = '\0';
+	return((int)std::strlen(buffer));
+}
+
+
 unsigned int Build_Number(void)
 {
 	return(OPENTS_VERSION_PACKED);

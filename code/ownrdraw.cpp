@@ -714,6 +714,14 @@ HFONT WS_Get_Font(HDC hdc, const char * face_name, int decipt_width, int decipt_
 HFONT Ez_Create_Font (HDC hdc, const char * face_name, int decipt_width,
 					int decipt_height, int attributes)
 {
+#ifndef _WIN32
+	/*
+	 * hdc is always null on Linux, so WS_Get_Font never reaches this call; nothing here
+	 * needs a real GDI font.
+	 */
+	(void)hdc; (void)face_name; (void)decipt_width; (void)decipt_height; (void)attributes;
+	return(NULL);
+#else
 	HFONT		hFont ;
 	LOGFONT	lf ;
 	POINT		pt ;
@@ -760,6 +768,7 @@ HFONT Ez_Create_Font (HDC hdc, const char * face_name, int decipt_width,
 
 	RestoreDC (hdc, -1);
 	return(hFont);
+#endif
 }
 
 
@@ -793,7 +802,7 @@ int OD_Draw_Text(COLORREF color, HFONT font, Rect const & rect, const char * tex
 
 	HDC hDC = destsurf->GetDC();
 	if (hDC) {
-
+#ifdef _WIN32
 		if (font) {
 			SelectObject(hDC, font);
 		}
@@ -824,6 +833,7 @@ int OD_Draw_Text(COLORREF color, HFONT font, Rect const & rect, const char * tex
 
 		TextOut(hDC, x_offset, y_offset, text, len);
 		destsurf->ReleaseDC(hDC);
+#endif
 	} else {
 		text_size.cx = 0;
 	}

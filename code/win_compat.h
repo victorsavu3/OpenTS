@@ -80,6 +80,12 @@ struct POINT
 	LONG y;
 };
 
+struct SIZE
+{
+	LONG cx;
+	LONG cy;
+};
+
 struct RECT
 {
 	LONG left;
@@ -103,6 +109,8 @@ using COLORREF = DWORD;
 
 #define LOWORD(l) ((WORD)((std::uintptr_t)(l) & 0xffff))
 #define HIWORD(l) ((WORD)(((std::uintptr_t)(l) >> 16) & 0xffff))
+#define LOBYTE(w) ((BYTE)((std::uintptr_t)(w) & 0xff))
+#define HIBYTE(w) ((BYTE)(((std::uintptr_t)(w) >> 8) & 0xff))
 #define MAKEWORD(a, b) ((WORD)(((BYTE)(a)) | (((WORD)((BYTE)(b))) << 8)))
 #define MAKELONG(a, b) ((LONG)(((WORD)(a)) | (((DWORD)((WORD)(b))) << 16)))
 #define MAKELPARAM(a, b) ((LPARAM)MAKELONG(a, b))
@@ -275,6 +283,7 @@ SHORT GetKeyState(int vk);
 SHORT GetAsyncKeyState(int vk);
 UINT MapVirtualKey(UINT code, UINT maptype);
 int ToUnicode(UINT vk, UINT scancode, PBYTE keystate, LPWSTR buffer, int buffer_count, UINT flags);
+int GetKeyNameText(LONG lparam, char * buffer, int buffer_count);
 
 #define IS_HIGH_SURROGATE(wch) ((wch) >= 0xD800 && (wch) <= 0xDBFF)
 #define IS_LOW_SURROGATE(wch) ((wch) >= 0xDC00 && (wch) <= 0xDFFF)

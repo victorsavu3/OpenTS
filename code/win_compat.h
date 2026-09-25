@@ -80,11 +80,18 @@ struct POINT
 	LONG x;
 	LONG y;
 };
+using LPPOINT = POINT *;
 
 struct SIZE
 {
 	LONG cx;
 	LONG cy;
+};
+
+struct POINTS
+{
+	SHORT x;
+	SHORT y;
 };
 
 struct RECT
@@ -118,6 +125,7 @@ using COLORREF = DWORD;
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 #define GET_WHEEL_DELTA_WPARAM(wParam) ((short)HIWORD(wParam))
+#define MAKEPOINTS(l) (POINTS{(SHORT)LOWORD(l), (SHORT)HIWORD(l)})
 
 // Window message values match winuser.h, though nothing here crosses a real Windows queue.
 #define WM_CREATE          0x0001
@@ -281,6 +289,19 @@ inline HDC GetDC(HWND) {return(NULL);}
 inline int ReleaseDC(HWND, HDC) {return(1);}
 
 HWND SetFocus(HWND window);
+HWND SetCapture(HWND window);
+BOOL ReleaseCapture(void);
+HWND GetCapture(void);
+
+// Client/screen coordinates are both the desktop's pixel space; the window's own top-left
+// is the only offset between them.
+BOOL ClientToScreen(HWND window, POINT * point);
+BOOL ScreenToClient(HWND window, POINT * point);
+
+// Wayland's security model refuses to warp the pointer outside an input-locked surface, so
+// SetCursorPos silently does nothing there; X11 and other backends move it as asked.
+BOOL SetCursorPos(int x, int y);
+BOOL GetCursorPos(POINT * point);
 
 // A VK already names a physical key in this build, so MapVirtualKey is an identity map and
 // ToUnicode has no dead-key composition.

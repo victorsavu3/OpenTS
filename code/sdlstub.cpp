@@ -15,12 +15,16 @@
 #include "winstub.h"
 #include "msgloop.h"
 
+#include "_keyboar.h"
 #include "_map.h"
+#include "_ui.h"
 #include "audio/audioengine.h"
+#include "dbgprint.h"
 #include "except.h"
 #include "gamewindow.h"
 #include "globals.h"
 #include "goptions.h"
+#include "keyboard.h"
 #include "misc.h"
 #include "movie.h"
 #include "queue.h"
@@ -472,6 +476,94 @@ HWND SetFocus(HWND window)
 	}
 
 	return(NULL);
+}
+
+
+namespace {
+HWND CapturedWindow = NULL;
+} // namespace
+
+
+HWND SetCapture(HWND window)
+{
+	HWND const previous = CapturedWindow;
+
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window != nullptr) {
+		SDL_CaptureMouse(true);
+		CapturedWindow = window;
+	}
+
+	return(previous);
+}
+
+
+BOOL ReleaseCapture(void)
+{
+	SDL_CaptureMouse(false);
+	CapturedWindow = NULL;
+	return(TRUE);
+}
+
+
+HWND GetCapture(void)
+{
+	return(CapturedWindow);
+}
+
+
+BOOL ClientToScreen(HWND window, POINT * point)
+{
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window == nullptr || point == nullptr) {
+		return(FALSE);
+	}
+
+	int window_x = 0;
+	int window_y = 0;
+	SDL_GetWindowPosition(sdl_window, &window_x, &window_y);
+
+	point->x += window_x;
+	point->y += window_y;
+	return(TRUE);
+}
+
+
+BOOL ScreenToClient(HWND window, POINT * point)
+{
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window == nullptr || point == nullptr) {
+		return(FALSE);
+	}
+
+	int window_x = 0;
+	int window_y = 0;
+	SDL_GetWindowPosition(sdl_window, &window_x, &window_y);
+
+	point->x -= window_x;
+	point->y -= window_y;
+	return(TRUE);
+}
+
+
+BOOL SetCursorPos(int x, int y)
+{
+	return(SDL_WarpMouseGlobal((float)x, (float)y) ? TRUE : FALSE);
+}
+
+
+BOOL GetCursorPos(POINT * point)
+{
+	if (point == nullptr) {
+		return(FALSE);
+	}
+
+	float x = 0.0f;
+	float y = 0.0f;
+	SDL_GetGlobalMouseState(&x, &y);
+	point->x = (LONG)x;
+	point->y = (LONG)y;
+	return(TRUE);
 }
 
 

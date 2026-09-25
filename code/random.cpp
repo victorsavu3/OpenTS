@@ -46,6 +46,8 @@
 
 #ifdef _MSC_VER
 #include <intrin.h>
+#else
+#include "win.h"
 #endif
 
 // Timing tests for random these random number generators in seconds for

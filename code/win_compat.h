@@ -299,6 +299,11 @@ HWND SetCapture(HWND window);
 BOOL ReleaseCapture(void);
 HWND GetCapture(void);
 
+// A repeating timer, matching real SetTimer; the message pump fires WM_TIMER for one whose
+// deadline has passed and reschedules it, so no callback function pointer is supported.
+UINT_PTR SetTimer(HWND window, UINT_PTR id, UINT elapse, void * callback);
+BOOL KillTimer(HWND window, UINT_PTR id);
+
 // Client/screen coordinates are both the desktop's pixel space; the window's own top-left
 // is the only offset between them.
 BOOL ClientToScreen(HWND window, POINT * point);

@@ -44,7 +44,9 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <sys/statvfs.h>
+#include <vector>
 
 int			ShowCommand;
 HWND		MainWindow;
@@ -422,6 +424,30 @@ bool Is_VK_Down(int vk)
 	}
 }
 
+
+struct TimerEntry
+{
+	HWND Window;
+	UINT_PTR Id;
+	UINT Elapse;
+	std::chrono::steady_clock::time_point Deadline;
+};
+
+std::vector<TimerEntry> Timers;
+
+// Called from the poll loop; a real timer's callback runs on whichever thread dispatches
+// its message, matching how this one runs on the thread that pumps events.
+void Pump_Timers(void)
+{
+	auto const now = std::chrono::steady_clock::now();
+	for (TimerEntry & timer : Timers) {
+		if (now >= timer.Deadline) {
+			timer.Deadline = now + std::chrono::milliseconds(timer.Elapse);
+			Dispatch_Message(WM_TIMER, timer.Id, 0);
+		}
+	}
+}
+
 } // namespace
 
 
@@ -562,6 +588,34 @@ BOOL ReleaseCapture(void)
 HWND GetCapture(void)
 {
 	return(CapturedWindow);
+}
+
+
+UINT_PTR SetTimer(HWND window, UINT_PTR id, UINT elapse, void *)
+{
+	for (TimerEntry & timer : Timers) {
+		if (timer.Window == window && timer.Id == id) {
+			timer.Elapse = elapse;
+			timer.Deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(elapse);
+			return(id);
+		}
+	}
+
+	Timers.push_back(TimerEntry{window, id, elapse,
+		std::chrono::steady_clock::now() + std::chrono::milliseconds(elapse)});
+	return(id);
+}
+
+
+BOOL KillTimer(HWND window, UINT_PTR id)
+{
+	for (auto it = Timers.begin(); it != Timers.end(); ++it) {
+		if (it->Window == window && it->Id == id) {
+			Timers.erase(it);
+			return(TRUE);
+		}
+	}
+	return(FALSE);
 }
 
 
@@ -741,6 +795,8 @@ void Create_Main_Window(HINSTANCE instance, int command_show, int width, int hei
 void Windows_Message_Handler(void)
 {
 	if (MainWindow == nullptr) return;
+
+	Pump_Timers();
 
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {

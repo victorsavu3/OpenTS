@@ -7,9 +7,10 @@
  * See LICENSE.md for applicable additional terms and warranty disclaimers.
  ******************************************************************************/
 
-// The window system's side of the UI shell's input, over SDL. code/ui/uiwin32.cpp is the
-// same file for Win32; a position has already been taken into the frame by the time either
-// sees one, and code/hostwindow_sdl.cpp owns the VK_ table SDL_Scancode_To_VK reads.
+// The window system's side of the UI shell's input, over SDL. It translates each SDL event
+// into the window message UIShellClass::Handle_Window_Message answers on Win32, which keeps
+// one input contract for the shell regardless of host; code/hostwindow_win32.cpp calls that
+// entry point directly from its own window procedure, with no adapter file of its own.
 
 #if defined(__linux__)
 
@@ -17,87 +18,47 @@
 
 #include "uisdl.h"
 
-#include "hostwindow.h"
-#include "uikeymap.h"
-#include "uishell.h"
+#include "_ui.h"
+#include "keyboard.h"
+#include "ui/uishell.h"
+#include "ui/uiunicode.h"
+
+#include <string>
 
 
-static unsigned int Current_Modifiers(void)
+static LPARAM Point_LParam(float x, float y)
 {
-	SDL_Keymod const mod = SDL_GetModState();
-	unsigned int modifiers = UI_MODIFIER_NONE;
-
-	if (mod & SDL_KMOD_SHIFT) modifiers |= UI_MODIFIER_SHIFT;
-	if (mod & SDL_KMOD_CTRL) modifiers |= UI_MODIFIER_CONTROL;
-	if (mod & SDL_KMOD_ALT) modifiers |= UI_MODIFIER_ALT;
-	if (mod & SDL_KMOD_GUI) modifiers |= UI_MODIFIER_META;
-
-	return(modifiers);
-}
-
-
-// A press that a document took owns its release, so the window keeps the mouse until the
-// button comes back up even if the cursor leaves the frame in between.
-static bool _Captured = false;
-
-
-static bool Map_Button(Uint8 button, UIMouseButtonType & mapped)
-{
-	switch (button) {
-		case SDL_BUTTON_LEFT:		mapped = UI_MOUSE_LEFT;	return(true);
-		case SDL_BUTTON_RIGHT:		mapped = UI_MOUSE_RIGHT;	return(true);
-		case SDL_BUTTON_MIDDLE:	mapped = UI_MOUSE_MIDDLE;	return(true);
-		default:					return(false);
-	}
-}
-
-
-static bool Handle_Button(UIMouseButtonType button, bool down, int x, int y)
-{
-	if (!down && _Captured) {
-		_Captured = false;
-		Host_Release_Pointer();
-
-		// The owner of the press owns the release whatever the document now reports, so
-		// the release is delivered and consumed either way.
-		UI_Handle_Mouse_Button(button, false, x, y, Current_Modifiers());
-		return(true);
-	}
-
-	if (!UI_Handle_Mouse_Button(button, down, x, y, Current_Modifiers())) {
-		return(false);
-	}
-
-	if (down) {
-		_Captured = true;
-		Host_Capture_Pointer();
-	}
-
-	return(true);
+	return(MAKELPARAM((int)x, (int)y));
 }
 
 
 bool UI_Handle_SDL_Event(SDL_Event const & event)
 {
-	if (!UI_Is_Initialized()) {
-		return(false);
-	}
-
 	switch (event.type) {
 		case SDL_EVENT_MOUSE_MOTION:
 			// A move is never consumed: the game goes on tracking the cursor whatever a
 			// document is doing with it.
-			UI_Handle_Mouse_Move((int)event.motion.x, (int)event.motion.y, Current_Modifiers());
+			UIShell.Handle_Window_Message(nullptr, WM_MOUSEMOVE, 0, Point_LParam(event.motion.x, event.motion.y));
 			return(false);
 
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP: {
-			UIMouseButtonType button;
-			if (!Map_Button(event.button.button, button)) {
-				return(false);
+			bool const down = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
+			UINT message;
+			switch (event.button.button) {
+				case SDL_BUTTON_LEFT:
+					message = !down ? WM_LBUTTONUP : (event.button.clicks >= 2 ? WM_LBUTTONDBLCLK : WM_LBUTTONDOWN);
+					break;
+				case SDL_BUTTON_MIDDLE:
+					message = !down ? WM_MBUTTONUP : (event.button.clicks >= 2 ? WM_MBUTTONDBLCLK : WM_MBUTTONDOWN);
+					break;
+				case SDL_BUTTON_RIGHT:
+					message = !down ? WM_RBUTTONUP : (event.button.clicks >= 2 ? WM_RBUTTONDBLCLK : WM_RBUTTONDOWN);
+					break;
+				default:
+					return(false);
 			}
-			return(Handle_Button(button, event.type == SDL_EVENT_MOUSE_BUTTON_DOWN,
-				(int)event.button.x, (int)event.button.y));
+			return(UIShell.Handle_Window_Message(nullptr, message, 0, Point_LParam(event.button.x, event.button.y)));
 		}
 
 		case SDL_EVENT_MOUSE_WHEEL: {
@@ -106,30 +67,49 @@ bool UI_Handle_SDL_Event(SDL_Event const & event)
 			// platform reports the axes flipped); a delta that rounds to no lines at all
 			// still scrolls the way it points.
 			float lines = (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) ? event.wheel.y : -event.wheel.y;
-
 			if (lines > -1.0f && lines < 0.0f) {
 				lines = -1.0f;
 			} else if (lines > 0.0f && lines < 1.0f) {
 				lines = 1.0f;
 			}
 
-			return(UI_Handle_Mouse_Wheel(lines, Current_Modifiers()));
+			WPARAM const wparam = MAKEWPARAM(0, (unsigned short)(short)(lines * WHEEL_DELTA));
+			return(UIShell.Handle_Window_Message(nullptr, WM_MOUSEWHEEL, wparam, Point_LParam(event.wheel.mouse_x, event.wheel.mouse_y)));
 		}
 
 		case SDL_EVENT_KEY_DOWN:
-		case SDL_EVENT_KEY_UP:
-			return(UI_Handle_Key(UI_Key_From_Virtual(SDL_Scancode_To_VK(event.key.scancode)),
-				event.type == SDL_EVENT_KEY_DOWN, Current_Modifiers()));
+		case SDL_EVENT_KEY_UP: {
+			unsigned short const vk = SDL_Scancode_To_VK(event.key.scancode);
+			if (vk == VK_NONE) {
+				return(false);
+			}
 
-		case SDL_EVENT_TEXT_INPUT:
-			return(UI_Handle_Text(event.text.text));
+			bool const down = (event.type == SDL_EVENT_KEY_DOWN);
+			LPARAM const lparam = (down && event.key.repeat) ? (1 << 30) : 0;
+			return(UIShell.Handle_Window_Message(nullptr, down ? WM_KEYDOWN : WM_KEYUP, vk, lparam));
+		}
+
+		case SDL_EVENT_TEXT_INPUT: {
+			std::wstring wide;
+			if (!UI_UTF8_To_UTF16(event.text.text, wide)) {
+				return(false);
+			}
+
+			bool consumed = false;
+			for (wchar_t unit : wide) {
+				consumed = UIShell.Handle_Window_Message(nullptr, WM_CHAR, (WPARAM)unit, 0) || consumed;
+			}
+			return(consumed);
+		}
 
 		case SDL_EVENT_WINDOW_FOCUS_LOST:
-			if (_Captured) {
-				_Captured = false;
-				Host_Release_Pointer();
-			}
-			UI_On_Focus_Lost();
+			// Drops the shell's own capture and composition state; never consumed, the
+			// same way a real WM_ACTIVATEAPP answer never is.
+			UIShell.Handle_Window_Message(nullptr, WM_ACTIVATEAPP, 0, 0);
+			return(false);
+
+		case SDL_EVENT_WINDOW_FOCUS_GAINED:
+			UIShell.Handle_Window_Message(nullptr, WM_ACTIVATEAPP, 1, 0);
 			return(false);
 
 		default:

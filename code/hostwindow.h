@@ -53,6 +53,10 @@ unsigned short Host_Key_Modifiers(void);
 // Whether a key or mouse button, named by its VK_ code, is held now.
 bool Host_Key_Is_Down(unsigned short key);
 
+// Whether a lock key (VK_CAPITAL, VK_NUMLOCK, VK_SCROLL) is latched on now; false for a code
+// that names no lock key.
+bool Host_Key_Toggled(unsigned short key);
+
 // The character a key code, with its modifier bits, types in the player's layout; zero when it
 // types none.
 int Host_Key_To_Character(unsigned short key);

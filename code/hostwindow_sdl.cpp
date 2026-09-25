@@ -406,6 +406,19 @@ bool Host_Key_Is_Down(unsigned short key)
 }
 
 
+bool Host_Key_Toggled(unsigned short key)
+{
+	SDL_Keymod const mod = SDL_GetModState();
+
+	switch (key) {
+		case VK_CAPITAL:	return((mod & SDL_KMOD_CAPS) != 0);
+		case VK_NUMLOCK:	return((mod & SDL_KMOD_NUM) != 0);
+		case VK_SCROLL:		return((mod & SDL_KMOD_SCROLL) != 0);
+	}
+	return(false);
+}
+
+
 unsigned short Host_Key_Modifiers(void)
 {
 	SDL_Keymod const mod = SDL_GetModState();
@@ -724,6 +737,10 @@ void Host_Pump_Events(void)
 
 			case SDL_EVENT_WINDOW_FOCUS_GAINED:
 				if (event.window.windowID != own_window) break;
+
+				// Restores the shell's held-input state, the same way code/hostwindow_win32.cpp
+				// answers WM_ACTIVATEAPP on reactivation.
+				UI_Handle_SDL_Event(event);
 
 				if (!GameInFocus) {
 					GameInFocus = true;

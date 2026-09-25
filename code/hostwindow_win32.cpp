@@ -200,6 +200,12 @@ bool Host_Key_Is_Down(unsigned short key)
 }
 
 
+bool Host_Key_Toggled(unsigned short key)
+{
+	return((GetKeyState(key) & 1) != 0);
+}
+
+
 // Windows translates with the modifiers the key code carries rather than those held now.
 int Host_Key_To_Character(unsigned short key)
 {

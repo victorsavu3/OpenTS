@@ -274,6 +274,10 @@ inline LONG_PTR GetClassLongPtr(HWND, int) { return(0); }
 HCURSOR LoadCursor(HINSTANCE, LPCTSTR id);
 void SetCursor(HCURSOR cursor);
 
+// Only ever called on a cursor Build_Cursor (wincursor.cpp) made with SDL_CreateColorCursor,
+// never on one of the cached system cursors LoadCursor hands out.
+void DestroyCursor(HCURSOR cursor);
+
 #define CP_ACP 0
 #define CP_UTF8 65001
 

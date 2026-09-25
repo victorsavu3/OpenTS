@@ -21,6 +21,10 @@
 #include "win.h"
 #include "xmouse.h"
 
+#ifndef _WIN32
+#include <SDL3/SDL.h>
+#endif
+
 #include <cstring>
 
 
@@ -98,6 +102,18 @@ static HCURSOR Build_Cursor(ShapeSet const * shape, int frame, int hotx, int hot
 		return(NULL);
 	}
 
+	// The shapes are palette indices and the primary is 565, so the drawer's table is
+	// what turns one into the other.
+	unsigned short const * table = (unsigned short const *)MouseDrawer->Get_Translate_Table();
+
+	int cursor_hotx = hotx * scale;
+	int cursor_hoty = hoty * scale;
+	if (cursor_hotx < 0) cursor_hotx = 0;
+	if (cursor_hoty < 0) cursor_hoty = 0;
+	if (cursor_hotx >= width) cursor_hotx = width - 1;
+	if (cursor_hoty >= height) cursor_hoty = height - 1;
+
+#ifdef _WIN32
 	BITMAPINFO info;
 	memset(&info, '\0', sizeof(info));
 	info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -115,10 +131,6 @@ static HCURSOR Build_Cursor(ShapeSet const * shape, int frame, int hotx, int hot
 	}
 
 	memset(bits, '\0', width * height * 4);
-
-	// The shapes are palette indices and the primary is 565, so the drawer's table is
-	// what turns one into the other.
-	unsigned short const * table = (unsigned short const *)MouseDrawer->Get_Translate_Table();
 
 	for (int y = 0; y < rect.Height; y++) {
 		for (int x = 0; x < rect.Width; x++) {
@@ -151,13 +163,6 @@ static HCURSOR Build_Cursor(ShapeSet const * shape, int frame, int hotx, int hot
 	HBITMAP mask = CreateBitmap(width, height, 1, 1, mask_bits);
 	delete [] mask_bits;
 
-	int cursor_hotx = hotx * scale;
-	int cursor_hoty = hoty * scale;
-	if (cursor_hotx < 0) cursor_hotx = 0;
-	if (cursor_hoty < 0) cursor_hoty = 0;
-	if (cursor_hotx >= width) cursor_hotx = width - 1;
-	if (cursor_hoty >= height) cursor_hoty = height - 1;
-
 	ICONINFO icon;
 	icon.fIcon = FALSE;
 	icon.xHotspot = cursor_hotx;
@@ -169,6 +174,42 @@ static HCURSOR Build_Cursor(ShapeSet const * shape, int frame, int hotx, int hot
 	DeleteObject(mask);
 	DeleteObject(color);
 	return(cursor);
+#else
+	SDL_Surface * surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_ARGB8888);
+	if (surface == NULL) {
+		return(NULL);
+	}
+
+	memset(surface->pixels, '\0', (size_t)surface->pitch * height);
+
+	for (int y = 0; y < rect.Height; y++) {
+		for (int x = 0; x < rect.Width; x++) {
+
+			unsigned char index = data[y * rect.Width + x];
+			if (index == 0) {
+				continue;
+			}
+
+			unsigned short pixel = table[index];
+			unsigned long red = ((pixel >> 11) & 0x1F) << 3;
+			unsigned long green = ((pixel >> 5) & 0x3F) << 2;
+			unsigned long blue = (pixel & 0x1F) << 3;
+			unsigned long argb = 0xFF000000UL | (red << 16) | (green << 8) | blue;
+
+			for (int suby = 0; suby < scale; suby++) {
+				unsigned long * row = (unsigned long *)((char *)surface->pixels
+					+ ((rect.Y + y) * scale + suby) * surface->pitch) + (rect.X + x) * scale;
+				for (int subx = 0; subx < scale; subx++) {
+					row[subx] = argb;
+				}
+			}
+		}
+	}
+
+	HCURSOR cursor = (HCURSOR)SDL_CreateColorCursor(surface, cursor_hotx, cursor_hoty);
+	SDL_DestroySurface(surface);
+	return(cursor);
+#endif
 }
 
 

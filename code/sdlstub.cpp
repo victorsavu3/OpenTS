@@ -634,6 +634,12 @@ void SetCursor(HCURSOR cursor)
 }
 
 
+void DestroyCursor(HCURSOR cursor)
+{
+	SDL_DestroyCursor((SDL_Cursor *)cursor);
+}
+
+
 UINT_PTR SetTimer(HWND window, UINT_PTR id, UINT elapse, void *)
 {
 	for (TimerEntry & timer : Timers) {

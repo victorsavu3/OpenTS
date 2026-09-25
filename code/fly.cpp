@@ -375,7 +375,7 @@ bool FlyLocomotionClass::Landing_Takeoff_AI(void)
 						IsTakingOff = true;
 						LinkedTo->IsOnBridge = false;
 						LinkedTo->Mark(MARK_UP);
-						LinkedTo->HeightAGL += 10;
+						LinkedTo->Set_Height_AGL(LinkedTo->Get_Height_AGL() + 10);
 						LinkedTo->Mark(MARK_DOWN);
 						ok = false;
 					}

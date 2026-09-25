@@ -564,7 +564,7 @@ bool FootClass::Basic_Path(Cell cell, int path_offset, int avoidance)
 	*/
 	Stop_Driver();
 
-	Cell mycell = PositionCoord;
+	Cell mycell = Get_Coord();
 	maxdist = std::max(abs(mycell.X - cell.X), abs(mycell.Y - cell.Y));
 	if (maxdist > 1 || (!IsOnBridge && Map[cell].IsUnderBridge)) {
 		if (Team != NULL) {

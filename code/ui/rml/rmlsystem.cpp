@@ -136,6 +136,8 @@ void UIRmlSystemClass::SetMouseCursor(Rml::String const & name)
 }
 
 
+#if defined(_WIN32)
+
 void UIRmlSystemClass::SetClipboardText(Rml::String const & text)
 {
 	std::wstring wide;
@@ -196,3 +198,25 @@ void UIRmlSystemClass::GetClipboardText(Rml::String & text)
 
 	CloseClipboard();
 }
+
+#else	// _WIN32
+
+namespace
+{
+	// No desktop-clipboard integration off Windows yet; a process-local buffer keeps a cut
+	// and later paste round-tripping within the same run.
+	std::string _PosixClipboardText;
+}
+
+void UIRmlSystemClass::SetClipboardText(Rml::String const & text)
+{
+	_PosixClipboardText.assign(text.data(), text.size());
+}
+
+
+void UIRmlSystemClass::GetClipboardText(Rml::String & text)
+{
+	text.assign(_PosixClipboardText.data(), _PosixClipboardText.size());
+}
+
+#endif	// _WIN32

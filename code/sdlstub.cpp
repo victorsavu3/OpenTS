@@ -696,6 +696,59 @@ BOOL ScreenToClient(HWND window, POINT * point)
 }
 
 
+BOOL GetWindowRect(HWND window, RECT * rect)
+{
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window == nullptr || rect == nullptr) {
+		return(FALSE);
+	}
+
+	int x = 0;
+	int y = 0;
+	int width = 0;
+	int height = 0;
+	SDL_GetWindowPosition(sdl_window, &x, &y);
+	SDL_GetWindowSize(sdl_window, &width, &height);
+
+	rect->left = x;
+	rect->top = y;
+	rect->right = x + width;
+	rect->bottom = y + height;
+	return(TRUE);
+}
+
+
+BOOL IsIconic(HWND window)
+{
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window == nullptr) {
+		return(FALSE);
+	}
+
+	return((SDL_GetWindowFlags(sdl_window) & SDL_WINDOW_MINIMIZED) != 0 ? TRUE : FALSE);
+}
+
+
+BOOL EnumDisplaySettings(char const *, int mode_index, DEVMODE * devmode)
+{
+	int count = 0;
+	SDL_DisplayMode ** modes = SDL_GetFullscreenDisplayModes(SDL_GetPrimaryDisplay(), &count);
+	if (modes == nullptr) {
+		return(FALSE);
+	}
+
+	BOOL result = FALSE;
+	if (mode_index >= 0 && mode_index < count) {
+		devmode->dmPelsWidth = (DWORD)modes[mode_index]->w;
+		devmode->dmPelsHeight = (DWORD)modes[mode_index]->h;
+		result = TRUE;
+	}
+
+	SDL_free(modes);
+	return(result);
+}
+
+
 BOOL SetCursorPos(int x, int y)
 {
 	return(SDL_WarpMouseGlobal((float)x, (float)y) ? TRUE : FALSE);

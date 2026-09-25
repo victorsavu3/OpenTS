@@ -332,6 +332,18 @@ inline BOOL InvalidateRect(HWND, void const *, BOOL) { return(TRUE); }
 // for the primary display, which is what every caller here already assumes.
 int GetSystemMetrics(int index);
 
+// Only the fields EnumDisplayModes reads; the real DEVMODE carries many more.
+struct DEVMODE
+{
+	DWORD dmSize;
+	DWORD dmPelsWidth;
+	DWORD dmPelsHeight;
+};
+
+// lpszDeviceName is unused; every query answers for the primary display, which is the
+// only one this build ever asks about.
+BOOL EnumDisplaySettings(char const * device_name, int mode_index, DEVMODE * devmode);
+
 // There is no window device context on Linux; the caller (WS_Get_Font) already treats a
 // null context as "skip drawing with GDI."
 inline HDC GetDC(HWND) {return(NULL);}
@@ -355,6 +367,8 @@ BOOL KillTimer(HWND window, UINT_PTR id);
 // is the only offset between them.
 BOOL ClientToScreen(HWND window, POINT * point);
 BOOL ScreenToClient(HWND window, POINT * point);
+BOOL GetWindowRect(HWND window, RECT * rect);
+BOOL IsIconic(HWND window);
 
 // Wayland's security model refuses to warp the pointer outside an input-locked surface, so
 // SetCursorPos silently does nothing there; X11 and other backends move it as asked.

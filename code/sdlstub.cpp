@@ -735,6 +735,65 @@ BOOL IsIconic(HWND window)
 }
 
 
+BOOL GetClientRect(HWND window, RECT * rect)
+{
+	SDL_Window * sdl_window = Handle_Window(window);
+	if (sdl_window == nullptr || rect == nullptr) {
+		return(FALSE);
+	}
+
+	int width = 0;
+	int height = 0;
+	SDL_GetWindowSize(sdl_window, &width, &height);
+
+	rect->left = 0;
+	rect->top = 0;
+	rect->right = width;
+	rect->bottom = height;
+	return(TRUE);
+}
+
+
+BOOL ClipCursor(RECT const * rect)
+{
+	SDL_Window * sdl_window = Handle_Window(MainWindow);
+	if (sdl_window == nullptr) {
+		return(FALSE);
+	}
+
+	if (rect == nullptr) {
+		return(SDL_SetWindowMouseRect(sdl_window, nullptr));
+	}
+
+	int window_x = 0;
+	int window_y = 0;
+	SDL_GetWindowPosition(sdl_window, &window_x, &window_y);
+
+	SDL_Rect confine;
+	confine.x = rect->left - window_x;
+	confine.y = rect->top - window_y;
+	confine.w = rect->right - rect->left;
+	confine.h = rect->bottom - rect->top;
+	return(SDL_SetWindowMouseRect(sdl_window, &confine));
+}
+
+
+int ShowCursor(BOOL show)
+{
+	static int display_count = 0;
+
+	display_count += show ? 1 : -1;
+
+	if (display_count >= 0) {
+		SDL_ShowCursor();
+	} else {
+		SDL_HideCursor();
+	}
+
+	return(display_count);
+}
+
+
 BOOL EnumDisplaySettings(char const *, int mode_index, DEVMODE * devmode)
 {
 	int count = 0;

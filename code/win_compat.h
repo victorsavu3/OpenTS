@@ -49,6 +49,11 @@ using VOID = void;
 #define WINAPI
 #define _ReturnAddress() __builtin_return_address(0)
 
+// SAL-style parameter direction markers; windows.h defines these as nothing too.
+#define IN
+#define OUT
+#define OPTIONAL
+
 // Opaque handles; nothing on this build dereferences one as a real Win32 object.
 using HANDLE = void *;
 using HINSTANCE = void *;
@@ -372,12 +377,20 @@ BOOL KillTimer(HWND window, UINT_PTR id);
 BOOL ClientToScreen(HWND window, POINT * point);
 BOOL ScreenToClient(HWND window, POINT * point);
 BOOL GetWindowRect(HWND window, RECT * rect);
+BOOL GetClientRect(HWND window, RECT * rect);
 BOOL IsIconic(HWND window);
 
 // Wayland's security model refuses to warp the pointer outside an input-locked surface, so
 // SetCursorPos silently does nothing there; X11 and other backends move it as asked.
 BOOL SetCursorPos(int x, int y);
 BOOL GetCursorPos(POINT * point);
+
+// Confines the OS cursor to a screen-space rect on the main window, or releases it for NULL.
+BOOL ClipCursor(RECT const * rect);
+
+// Matches ShowCursor's real Win32 contract: TRUE/FALSE move a signed display counter by one
+// and return the result, and the cursor is only actually drawn while the counter is >= 0.
+int ShowCursor(BOOL show);
 
 // A VK already names a physical key in this build, so MapVirtualKey is an identity map and
 // ToUnicode has no dead-key composition.

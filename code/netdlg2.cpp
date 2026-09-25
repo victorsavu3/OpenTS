@@ -25,6 +25,7 @@
 #include "dbgprint.h"
 #include "globals.h"
 #include "goptions.h"
+#include "hostwindow.h"
 #include "houstype.h"
 #include "init.h"
 #include "ipxmgr.h"
@@ -401,11 +402,15 @@ bool Net2_Service_Lobby(void)
 	Ipx.Service();
 	Title_Screen_Restore();
 
+#if defined(_WIN32)
 	MSG msg;
 	while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
 		TranslateMessage(&msg);
 		DispatchMessageW(&msg);
 	}
+#else
+	Host_Pump_Events();
+#endif
 
 	Call_Back();
 	if (_netresponse != UI_NET_NONE) {
@@ -747,7 +752,6 @@ int Net2SetHouseAndColor(char *who, int house, int color)
 static void Get_Serial_From_Registry(char * serial, char const * reg_key)
 {
 	if (reg_key && strlen(reg_key) != 0) {
-		HKEY rKey;
 		char keyname[256];
 		UTF8::Copy(keyname, reg_key);
 		Platform_Read_Machine_Registry(keyname, "Serial", serial, ENCRYPTION_STRING_LENGTH);

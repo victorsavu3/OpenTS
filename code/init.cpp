@@ -201,9 +201,9 @@
 #include "scrnsel.hh"
 
 #include <algorithm>
-#include <conio.h>
 #include <ctime>
 #ifdef _WIN32
+#include <conio.h>
 #include <dos.h>
 #endif
 #include <string>

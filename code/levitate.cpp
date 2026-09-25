@@ -26,6 +26,8 @@
 
 #include "layer.hh"
 
+#include <cmath>
+
 
 LevitateLocomotionClass::GlobalControlsStruct LevitateLocomotionClass::GlobalControls = {
 	0.05,	/// Drag

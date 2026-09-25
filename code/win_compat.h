@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <cerrno>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <dirent.h>
@@ -417,6 +418,37 @@ inline BOOL FileTimeToLocalFileTime(FILETIME const * ft, FILETIME * local)
 	return(TRUE);
 }
 
+using LCID = DWORD;
+#define LANG_USER_DEFAULT 0
+#define TIME_NOSECONDS 0x00000002
+#define TIME_NOMINUTESORSECONDS 0x00000004
+
+inline int GetDateFormat(LCID, DWORD, SYSTEMTIME const * date, char const *, char * out, int out_size)
+{
+	std::tm tm{};
+	tm.tm_year = date->wYear - 1900;
+	tm.tm_mon = date->wMonth - 1;
+	tm.tm_mday = date->wDay;
+	tm.tm_wday = date->wDayOfWeek;
+
+	std::size_t const written = std::strftime(out, (std::size_t)out_size, "%x", &tm);
+	return((int)written);
+}
+
+// TIME_NOSECONDS and TIME_NOMINUTESORSECONDS are the only flags any caller passes, so
+// minutes are always shown and only the seconds field is conditional.
+inline int GetTimeFormat(LCID, DWORD flags, SYSTEMTIME const * time, char const *, char * out, int out_size)
+{
+	std::tm tm{};
+	tm.tm_hour = time->wHour;
+	tm.tm_min = time->wMinute;
+	tm.tm_sec = time->wSecond;
+
+	char const * const format = (flags & (TIME_NOSECONDS | TIME_NOMINUTESORSECONDS)) != 0 ? "%H:%M" : "%X";
+	std::size_t const written = std::strftime(out, (std::size_t)out_size, format, &tm);
+	return((int)written);
+}
+
 #define FILE_ATTRIBUTE_NORMAL    0x00000080
 #define FILE_ATTRIBUTE_DIRECTORY 0x00000010
 #define FILE_ATTRIBUTE_HIDDEN    0x00000002
@@ -448,6 +480,7 @@ struct WIN32_FIND_DATA
 	DWORD nFileSizeHigh;
 	DWORD nFileSizeLow;
 	char cFileName[260];
+	char cAlternateFileName[14];
 };
 using WIN32_FIND_DATAA = WIN32_FIND_DATA;
 
@@ -569,6 +602,11 @@ inline BOOL FindClose(HANDLE handle)
 	closedir(find->Directory);
 	delete find;
 	return(TRUE);
+}
+
+inline BOOL DeleteFile(char const * path)
+{
+	return(std::remove(path) == 0 ? TRUE : FALSE);
 }
 
 // Emulates MSVC's __declspec(property(...)), which GCC and Clang do not support, by

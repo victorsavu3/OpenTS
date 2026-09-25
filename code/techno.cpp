@@ -210,6 +210,7 @@
 #include "tube.hh"
 
 #include <algorithm>
+#include <cmath>
 #ifdef _MSC_VER
 #include <intrin.h>
 #endif

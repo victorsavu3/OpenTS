@@ -277,7 +277,7 @@ void ObjectClass::AI(void)
 	if (IsFalling) {
 		LayerType layer = In_Which_Layer();
 
-		Height += Riser.Z;
+		Set_Height(Get_Height() + Riser.Z);
 		if (HeightAGL <= 0) {
 			HeightAGL = 0;
 			IsFalling = false;

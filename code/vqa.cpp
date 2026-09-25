@@ -21,6 +21,7 @@
 #include "goptions.h"
 #include "mixfile.h"
 #include "movies.h"
+#include "msgloop.h"
 #include "session.h"
 #include "unvqtblc.h"
 #include "vector.h"
@@ -45,6 +46,7 @@ intptr_t __cdecl VQAMemoryHandler(VQAHandle * vqa, long action, void * buffer, l
 
 bool VQA_Message_Handler(void)
 {
+#ifdef _WIN32
 	MSG msg;
 
 	if (PeekMessageW(&msg, NULL, 0, 0, PM_NOREMOVE)) {
@@ -56,6 +58,12 @@ bool VQA_Message_Handler(void)
 		}
 	}
 	return(true);
+#else
+	// Nothing on this build ever posts a WM_QUIT for GetMessage to report, so pumping
+	// always leaves the caller free to keep playing.
+	Windows_Message_Handler();
+	return(true);
+#endif
 }
 
 

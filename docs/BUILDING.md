@@ -217,6 +217,38 @@ its CTest suite, and runs this smoke test on every change to the same paths
 the Windows `Engine` workflow watches. It is a separate workflow from
 `Engine`, so a failure here does not block the supported Windows matrix.
 
+### Campaign smoke test (needs your own game data)
+
+`tests/campaign-smoke/run.sh` starts a real GDI mission and a real Nod
+mission against a Tiberian Sun installation you provide, and checks that
+mouse input reaches the tactical view: it selects whatever the mission's
+Home waypoint centers the camera on and gives it a move order, screenshotting
+each step for you to look at:
+
+```bash
+tests/campaign-smoke/run.sh --bin-dir build/linux/bin --assets /path/to/your/TiberianSun
+```
+
+This needs your own legally obtained game data (`RULES.INI`, `BATTLE.INI`,
+the mission files) and `Xvfb`, `xdotool`, and ImageMagick's `import` on
+`PATH`. It is never run by CI or CTest, so `CONTRIBUTING.md`'s rule against
+proprietary assets in automated tests does not apply to it. It drives the
+game the same way CnCNet's launcher does, with `-SPAWN` and a `SPAWN.INI`
+naming the mission file directly, which reaches the mission through the same
+loading path a menu-driven launch does without needing to automate either of
+the two main-menu implementations.
+
+The default GDI and Nod mission file names are Tiberian Sun's own
+conventional first-mission names; pass `--gdi-scenario`/`--nod-scenario` if
+your data uses different ones. The screen coordinates it clicks are a guess
+at the tactical view's center, allowing for a right-hand sidebar; look at the
+first run's `*-02-mission-loaded.png` and pass `--select-x`/`--select-y` and
+`--move-x`/`--move-y` to correct them if a mission's own layout differs. Pass
+`--help` for the full option list.
+
+The screenshots are the check: this script draws no automated pass/fail
+conclusion from them, since it has nothing rendered to compare them to.
+
 ## Build from Visual Studio Code
 
 With the recommended extensions installed, the repository provides:

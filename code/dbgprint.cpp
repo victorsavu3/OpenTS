@@ -37,8 +37,11 @@
 #include <ctime>
 #include <filesystem>
 #include <mutex>
+
+#ifndef _WIN32
 #include <sys/utsname.h>
 #include <unistd.h>
+#endif
 
 #ifdef _WIN32
 

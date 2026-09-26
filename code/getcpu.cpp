@@ -45,6 +45,11 @@
 
 #ifdef _MSC_VER
 #include <intrin.h>
+
+static void Query_CPUID(int regs[4], int function)
+{
+	__cpuid(regs, function);
+}
 #else
 #include <cpuid.h>
 

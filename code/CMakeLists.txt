@@ -46,15 +46,22 @@ endforeach()
 
 #
 # ---------------------------------------------------------
-# On the experimental Linux build, drop the files that have no non-Windows
-# implementation and add the SDL3-backed ones in their place. Despite their
-# name, ipxaddr/ipxconn/ipxgconn/ipxmgr.cpp already implement Internet play
-# over UDP (see wsproto.cpp/wspudp.cpp) rather than the real IPX/SPX protocol,
-# so they build on every platform. winfix.cpp's TreeView/ListView/WinHelp
-# fixups exist only for the retired Win32 dialog layer's own callers, none of
-# which build on this platform, so it stays Windows-only.
+# The general glob above picks up both platforms' sources, so each build drops the other's:
+# the experimental Linux build drops the files that have no non-Windows implementation and
+# adds the SDL3-backed ones in their place; a normal Windows build drops those SDL3-backed
+# ones, which need not compile there at all. Despite their name, ipxaddr/ipxconn/ipxgconn/
+# ipxmgr.cpp already implement Internet play over UDP (see wsproto.cpp/wspudp.cpp) rather than
+# the real IPX/SPX protocol, so they build on every platform. winfix.cpp's TreeView/ListView/
+# WinHelp fixups exist only for the retired Win32 dialog layer's own callers, none of which
+# build on this platform, so it stays Windows-only.
 # ---------------------------------------------------------
 #
+set(OPENTS_LINUX_ONLY_SRC
+    "${CMAKE_CURRENT_SOURCE_DIR}/sdlstub.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sdlmain.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/sdltranslate.cpp"
+)
+
 if(OPENTS_EXPERIMENTAL_LINUX)
     set(OPENTS_WINDOWS_ONLY_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/winstub.cpp"
@@ -64,9 +71,8 @@ if(OPENTS_EXPERIMENTAL_LINUX)
         "${CMAKE_CURRENT_SOURCE_DIR}/winfix.cpp"
     )
     list(REMOVE_ITEM OPENTS_SRC ${OPENTS_WINDOWS_ONLY_SRC})
-    list(APPEND OPENTS_SRC
-        "${CMAKE_CURRENT_SOURCE_DIR}/sdlstub.cpp"
-    )
+else()
+    list(REMOVE_ITEM OPENTS_SRC ${OPENTS_LINUX_ONLY_SRC})
 endif()
 
 #

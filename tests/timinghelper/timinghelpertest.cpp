@@ -85,12 +85,14 @@ int main(void)
 	// wraparound at all; it has to actually be 64 bits wide to do that.
 	Check(sizeof(GetTickCount64()) == 8, "GetTickCount64 is a 64-bit count, unlike timeGetTime");
 
-	// The gap between the two calls is scheduling jitter, not something this test controls, so
-	// the bound is generous rather than tight; a real disagreement between the two clocks would
-	// still show up as seconds, not milliseconds.
+	// The two calls are not atomic with each other, so either one can read a touch ahead of the
+	// other; the gap is scheduling jitter, not something this test controls, so the bound is
+	// generous rather than tight. Casting the unsigned difference back to signed recovers a small
+	// negative gap correctly instead of reading it as wrapped around to nearly 2^32.
 	ULONGLONG wide_before = GetTickCount64();
 	DWORD narrow_before = timeGetTime();
-	Check(narrow_before - (DWORD)wide_before <= 1000,
+	LONG difference_ms = (LONG)(narrow_before - (DWORD)wide_before);
+	Check(difference_ms >= -1000 && difference_ms <= 1000,
 		"GetTickCount64 and timeGetTime agree, save for the instant that passes between the two calls");
 
 	std::printf("\n%s\n", Failures == 0 ? "All checks passed." : "There were failures.");

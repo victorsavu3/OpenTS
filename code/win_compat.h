@@ -426,7 +426,11 @@ inline DWORD timeGetTime(void)
 	return((DWORD)std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
 }
 
-inline DWORD GetTickCount64(void) { return(timeGetTime()); }
+inline ULONGLONG GetTickCount64(void)
+{
+	auto const now = std::chrono::steady_clock::now().time_since_epoch();
+	return((ULONGLONG)std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
+}
 
 union LARGE_INTEGER
 {

@@ -24,11 +24,22 @@ NativeWindow Win_Native_Window(HWND window);
 bool Win_Window_Drawable_Size(HWND window, int & width, int & height);
 int Win_Window_Refresh_Rate(HWND window);
 #ifndef _WIN32
+#include <SDL3/SDL.h>
+
 void Win_Resize_And_Center_Window(HWND window, int width, int height);
 
 // The real argv main() received, so WinMain's own callers need no GetCommandLineW-style
 // reconstruction. count is the number of entries; argv[0] is the executable path.
 char * const * Program_Arguments(int & count);
+
+// Translates an SDL_EVENT_MOUSE_BUTTON_DOWN/UP event's button into the matching
+// WM_*BUTTONDOWN/UP message.
+UINT Mouse_Button_Message(Uint8 button, bool down);
+
+// The two directions of this build's fixed SDL_Scancode <-> VK_* mapping. A scancode or VK
+// outside the table maps to SDL_SCANCODE_UNKNOWN or 0, respectively.
+unsigned short Scancode_To_VK(SDL_Scancode scancode);
+SDL_Scancode VK_To_Scancode(unsigned short vk);
 #endif
 
 void Load_Title_Screen(char const * name, Surface * surface, PaletteClass * palette);

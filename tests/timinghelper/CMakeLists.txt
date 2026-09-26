@@ -4,4 +4,5 @@
 opents_add_test(TimingHelper
     NAME timinghelper
     SOURCES timinghelpertest.cpp
+    LIBRARIES $<$<CXX_COMPILER_ID:MSVC>:winmm>
 )

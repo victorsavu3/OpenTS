@@ -14,6 +14,7 @@
 #include "hostwindow.h"
 
 #include "_keyboar.h"
+#include "_ui.h"
 #include "dbgprint.h"
 #include "except.h"
 #include "gamewindow.h"
@@ -27,7 +28,7 @@
 #include "queue.h"
 #include "resource.h"
 #include "session.h"
-#include "ui/uiwin32.h"
+#include "ui/uishell.h"
 #include "video.h"
 #include "vidscale.h"
 #include "win.h"
@@ -383,7 +384,10 @@ LRESULT CALLBACK /*_export*/ Windows_Procedure(HWND hwnd, UINT message, WPARAM w
 {
 
 	// The frame may be drawn scaled, so a position is taken into the frame before anything
-	// reads it. A wheel message carries a screen position, which nothing reads.
+	// below reads it. UIShellClass gets the message's own client position untouched, the
+	// same space RmlUi's overlay scales for itself through Host.Frame(); a wheel message
+	// carries a screen position, which nothing here reads.
+	LPARAM const client_lparam = lParam;
 	if (Is_Mouse_Position_Message(message)) {
 		Point2D point(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
 		Window_Point_To_Game(point);
@@ -391,7 +395,7 @@ LRESULT CALLBACK /*_export*/ Windows_Procedure(HWND hwnd, UINT message, WPARAM w
 	}
 
 	// Before the game's own handling, so input a document took never enters the KN_ queue.
-	if (UI_Handle_Window_Message(hwnd, message, wParam, lParam)) {
+	if (UIShell.Handle_Window_Message(hwnd, message, wParam, client_lparam)) {
 		return(0);
 	}
 
@@ -443,7 +447,7 @@ LRESULT CALLBACK /*_export*/ Windows_Procedure(HWND hwnd, UINT message, WPARAM w
 			return(1);
 
 		case WM_SETCURSOR:
-			if (LOWORD(lParam) == HTCLIENT && Win_Cursor_Handle_Set_Cursor()) {
+			if (LOWORD(lParam) == HTCLIENT && (UIShell.Handle_Set_Cursor() || Win_Cursor_Handle_Set_Cursor())) {
 				return(TRUE);
 			}
 			break;

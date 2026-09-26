@@ -766,14 +766,10 @@ void Host_Pump_Events(void)
 
 				// A move is never consumed: the game keeps tracking the cursor through
 				// Host_Pointer_Position whatever a document is doing with it, and has no
-				// event of its own to answer here.
-				Point2D point((int)event.motion.x, (int)event.motion.y);
-				Window_Point_To_Game(point);
-
-				SDL_Event ui_event = event;
-				ui_event.motion.x = (float)point.X;
-				ui_event.motion.y = (float)point.Y;
-				UI_Handle_SDL_Event(ui_event);
+				// event of its own to answer here. UIShellClass reads client pixels, the
+				// same space a Win32 WM_MOUSEMOVE lparam carries, and does its own scaling
+				// through Host.Frame(); only the game's own handling wants game pixels.
+				UI_Handle_SDL_Event(event);
 				break;
 			}
 
@@ -811,16 +807,14 @@ void Host_Pump_Events(void)
 			case SDL_EVENT_MOUSE_BUTTON_UP: {
 				if (event.button.windowID != own_window) break;
 
-				Point2D point((int)event.button.x, (int)event.button.y);
-				Window_Point_To_Game(point);
-
-				SDL_Event ui_event = event;
-				ui_event.button.x = (float)point.X;
-				ui_event.button.y = (float)point.Y;
-
+				// UIShellClass reads client pixels, the same space a Win32 WM_LBUTTONDOWN
+				// lparam carries; only the game's own handling below wants game pixels.
 				// Before the game's own handling, so a click a document took never enters
 				// the keyboard buffer.
-				if (UI_Handle_SDL_Event(ui_event)) break;
+				if (UI_Handle_SDL_Event(event)) break;
+
+				Point2D point((int)event.button.x, (int)event.button.y);
+				Window_Point_To_Game(point);
 
 				unsigned short vk = VK_NONE;
 				switch (event.button.button) {

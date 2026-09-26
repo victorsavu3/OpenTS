@@ -367,7 +367,7 @@ int main(int argc, char * argv[])
 		DeploymentConfig.Read_File(Data_Directory().c_str());
 		Init_Search_Folders(DeploymentConfig.SearchPaths.c_str());
 
-		std::string uidirectory = Data_Directory();
+		std::string uidirectory = Executable_Directory();
 		if (!uidirectory.empty() && uidirectory.back() != '\\' && uidirectory.back() != '/') {
 			uidirectory += '\\';
 		}

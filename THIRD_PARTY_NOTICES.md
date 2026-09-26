@@ -25,6 +25,7 @@ remains under its own license and copyright notices.
 | [stb](https://github.com/nothings/stb)                             | Rectangle packing, text editing, and TrueType headers bundled with Dear ImGui | MIT or Unlicense |
 | [stb_image](https://github.com/nothings/stb)                       | PNG and TGA decoding for the UI, bundled with bimg | MIT or Unlicense |
 | [Arimo](https://github.com/googlefonts/arimo)                      | The UI font                               | OFL-1.1      |
+| [SDL](https://github.com/libsdl-org/SDL)                           | Windowing, input, timing, message boxes, and clipboard access for the experimental Linux build | Zlib |
 
 The source checkout keeps the license texts under `thirdparty/`. Binary
 packages reproduce the license texts for the components used by OpenTS under

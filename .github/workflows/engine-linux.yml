@@ -1,0 +1,75 @@
+name: Engine (experimental Linux)
+
+# Builds and smoke-tests the unsupported, experimental native Linux configuration
+# (-DOPENTS_EXPERIMENTAL_LINUX=ON; see docs/BUILDING.md). This is a separate workflow from the
+# Windows-only Engine workflow, so a failure here never blocks the supported build matrix.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "code/**"
+      - "cmake/**"
+      - "tests/**"
+      - "thirdparty/**"
+      - "ui/**"
+      - "CMakeLists.txt"
+      - ".gitmodules"
+      - ".github/workflows/engine-linux.yml"
+  push:
+    branches: [main]
+    paths:
+      - "code/**"
+      - "cmake/**"
+      - "tests/**"
+      - "thirdparty/**"
+      - "ui/**"
+      - "CMakeLists.txt"
+      - ".gitmodules"
+      - ".github/workflows/engine-linux.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-linux-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and smoke test
+    # A draft pull request builds nothing; the ready_for_review trigger above starts the build
+    # when the pull request is marked ready.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out OpenTS
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          submodules: recursive
+
+      - name: Install build and runtime dependencies
+        # weston provides the headless compositor the smoke test runs against; the Mesa
+        # packages give it a software Vulkan driver (lavapipe) since the runner has no GPU.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ninja-build \
+            libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libvulkan-dev mesa-vulkan-drivers \
+            weston
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DOPENTS_EXPERIMENTAL_LINUX=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Wayland smoke test
+        run: bash tests/wayland-smoke/run.sh build/bin

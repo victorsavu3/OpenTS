@@ -14,6 +14,7 @@
 #include "always.h"
 #include "win.h"
 
+#include <cctype>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -34,8 +35,26 @@ char OriginalDirectory[MAX_PATH];
 // is the same string the code under test builds.
 #ifdef _WIN32
 std::string const SEP = "\\";
+
+std::string Lowercased(std::string const & name)
+{
+	return(name);
+}
 #else
 std::string const SEP = "/";
+
+// RawFileClass::Set_Name (rawfile.cpp) lowercases every name it is given on this platform, then
+// updates it to the real on-disk name if a case-insensitive scan finds one; a name matching
+// nothing on disk, including one this harness is about to create, keeps this lowercase form. An
+// expected value naming such a file has to match that, not the case the harness wrote it with.
+std::string Lowercased(std::string const & name)
+{
+	std::string result = name;
+	for (char & ch : result) {
+		ch = (char)std::tolower((unsigned char)ch);
+	}
+	return(result);
+}
 #endif
 
 
@@ -263,7 +282,7 @@ void Test_Search_Files(void)
 
 	Init_Search_Folders(Default_List().c_str());
 
-	Check_List(Search_Files("*.MPR"), {"ALPHA.MPR", "BRAVO.MPR", "CHARLIE.MPR"},
+	Check_List(Search_Files("*.MPR"), {Lowercased("ALPHA.MPR"), Lowercased("BRAVO.MPR"), Lowercased("CHARLIE.MPR")},
 		"a scan covers every folder, reports a name once, and sorts it");
 
 	/*
@@ -271,11 +290,11 @@ void Test_Search_Files(void)
 	 * another. Both walk the folders in the same order, so the game's own copy wins.
 	 */
 	CDFileClass found("ALPHA.MPR");
-	Check(std::string(found.File_Name()) == "ALPHA.MPR",
+	Check(std::string(found.File_Name()) == Lowercased("ALPHA.MPR"),
 		"opening a name the scan reported lands on the copy the scan saw");
 
 	CDFileClass sorted("CHARLIE.MPR");
-	Check(std::string(sorted.File_Name()) == "MIX" + SEP + "CHARLIE.MPR",
+	Check(std::string(sorted.File_Name()) == "MIX" + SEP + Lowercased("CHARLIE.MPR"),
 		"a name held only by a searched folder opens from that folder");
 }
 
@@ -295,13 +314,13 @@ void Test_Writes_Do_Not_Search(void)
 	std::string const written = file.File_Name();
 	file.Close();
 
-	Check(written == "WRITTEN.DAT", "a read-write open does not settle on a searched folder");
+	Check(written == Lowercased("WRITTEN.DAT"), "a read-write open does not settle on a searched folder");
 
-	Check(GetFileAttributes((Root + SEP + "WRITTEN.DAT").c_str()) != INVALID_FILE_ATTRIBUTES,
+	Check(GetFileAttributes((Root + SEP + Lowercased("WRITTEN.DAT")).c_str()) != INVALID_FILE_ATTRIBUTES,
 		"the written file is in the current directory");
 
 	WIN32_FILE_ATTRIBUTE_DATA shipped;
-	GetFileAttributesEx((Root + SEP + "MIX" + SEP + "WRITTEN.DAT").c_str(), GetFileExInfoStandard, &shipped);
+	GetFileAttributesEx((Root + SEP + "MIX" + SEP + Lowercased("WRITTEN.DAT")).c_str(), GetFileExInfoStandard, &shipped);
 	Check(shipped.nFileSizeLow == 7, "the copy in the searched folder is untouched");
 }
 
@@ -327,14 +346,15 @@ void Test_Long_Names(void)
 	Write_File(absolute, "");
 
 	CDFileClass file(absolute.c_str());
-	Check(std::string(file.File_Name()) == absolute,
+	Check(std::string(file.File_Name()) == Root + SEP + Lowercased("ALPHA.MPR"),
 		"a file named with its own directory is found while long folders are searched");
 
+	// "As it was given" only holds where nothing lowercases the name first; see Lowercased.
 	CDFileClass missing((Root + SEP + "NOTHERE.MPR").c_str());
-	Check(std::string(missing.File_Name()) == Root + SEP + "NOTHERE.MPR",
+	Check(std::string(missing.File_Name()) == Root + SEP + Lowercased("NOTHERE.MPR"),
 		"a name that no folder holds comes back as it was given");
 
-	Check_List(Search_Files("*.MPR"), {"ALPHA.MPR"}, "a scan passes over a folder it cannot build a name in");
+	Check_List(Search_Files("*.MPR"), {Lowercased("ALPHA.MPR")}, "a scan passes over a folder it cannot build a name in");
 }
 
 
@@ -356,8 +376,8 @@ void Test_The_File_Layer_Places_Written_Files(void)
 	written.Write("mine", 4);
 	written.Close();
 
-	Check(std::string(written.File_Name()) == own + "OWN.DAT", "a written file is named in the user directory");
-	Check(File_Exists(own + "OWN.DAT"), "a written file is in the user directory");
+	Check(std::string(written.File_Name()) == own + Lowercased("OWN.DAT"), "a written file is named in the user directory");
+	Check(File_Exists(own + Lowercased("OWN.DAT")), "a written file is in the user directory");
 	Check(!File_Exists(Root + SEP + "OWN.DAT"), "a written file is not beside the game");
 
 	/*
@@ -379,7 +399,7 @@ void Test_The_File_Layer_Places_Written_Files(void)
 
 	CDFileClass reopened("PROGRESS.INI");
 	Check(reopened.Is_Available(), "a created file is found again");
-	Check(std::string(reopened.File_Name()) == own + "PROGRESS.INI", "a created file is found in the user directory");
+	Check(std::string(reopened.File_Name()) == own + Lowercased("PROGRESS.INI"), "a created file is found in the user directory");
 }
 
 
@@ -398,8 +418,8 @@ void Test_The_File_Layer_Deletes_Only_The_Player_Copy(void)
 	CDFileClass discard("GONE.DAT");
 	discard.Delete();
 
-	Check(!File_Exists(own + "GONE.DAT"), "the player's own copy is thrown away");
-	Check(File_Exists(Root + SEP + "MIX" + SEP + "GONE.DAT"), "the copy a deployment ships is left alone");
+	Check(!File_Exists(own + Lowercased("GONE.DAT")), "the player's own copy is thrown away");
+	Check(File_Exists(Root + SEP + "MIX" + SEP + Lowercased("GONE.DAT")), "the copy a deployment ships is left alone");
 
 	CDFileClass again("GONE.DAT");
 	Check(Read_File(again.File_Name()) == "shipped", "what a deployment ships answers once the player's copy is gone");
@@ -422,10 +442,10 @@ void Test_Resetting_Keeps_The_Shipped_Default(void)
 
 	// A player who has never saved their own asks for the defaults back.
 	CDFileClass untouched("KEYBOARD.INI");
-	Check(std::string(untouched.File_Name()) == "INI" + SEP + "KEYBOARD.INI",
+	Check(std::string(untouched.File_Name()) == "INI" + SEP + Lowercased("KEYBOARD.INI"),
 		"a player with none of their own reads the shipped default");
 	untouched.Delete();
-	Check(File_Exists(Root + SEP + "INI" + SEP + "KEYBOARD.INI"),
+	Check(File_Exists(Root + SEP + "INI" + SEP + Lowercased("KEYBOARD.INI")),
 		"a reset with nothing of the player's own leaves the shipped default");
 
 	// And now one who has.
@@ -435,13 +455,13 @@ void Test_Resetting_Keeps_The_Shipped_Default(void)
 	Check(Read_File(owned.File_Name()) == "mine", "the player's own hotkeys are the ones read");
 	owned.Delete();
 
-	Check(!File_Exists(Root + SEP + "User" + SEP + "Own" + SEP + "KEYBOARD.INI"), "a reset throws the player's own away");
-	Check(File_Exists(Root + SEP + "INI" + SEP + "KEYBOARD.INI"), "a reset leaves the shipped default");
+	Check(!File_Exists(Root + SEP + "User" + SEP + "Own" + SEP + Lowercased("KEYBOARD.INI")), "a reset throws the player's own away");
+	Check(File_Exists(Root + SEP + "INI" + SEP + Lowercased("KEYBOARD.INI")), "a reset leaves the shipped default");
 
 	CDFileClass fallback("KEYBOARD.INI");
 	Check(Read_File(fallback.File_Name()) == "shipped", "the shipped default answers again after a reset");
 
-	DeleteFile((Root + SEP + "INI" + SEP + "KEYBOARD.INI").c_str());
+	DeleteFile((Root + SEP + "INI" + SEP + Lowercased("KEYBOARD.INI")).c_str());
 }
 
 
@@ -456,9 +476,9 @@ void Test_A_Name_With_A_Directory_Is_Left_Alone(void)
 	rooted.Write("here", 4);
 	rooted.Close();
 
-	Check(std::string(rooted.File_Name()) == "MIX" + SEP + "ROOTED.DAT", "a name with a directory keeps it");
-	Check(File_Exists(Root + SEP + "MIX" + SEP + "ROOTED.DAT"), "a name with a directory is written where it says");
-	Check(!File_Exists(Root + SEP + "User" + SEP + "Own" + SEP + "ROOTED.DAT"), "a name with a directory is not moved");
+	Check(std::string(rooted.File_Name()) == "MIX" + SEP + Lowercased("ROOTED.DAT"), "a name with a directory keeps it");
+	Check(File_Exists(Root + SEP + "MIX" + SEP + Lowercased("ROOTED.DAT")), "a name with a directory is written where it says");
+	Check(!File_Exists(Root + SEP + "User" + SEP + "Own" + SEP + Lowercased("ROOTED.DAT")), "a name with a directory is not moved");
 }
 
 
@@ -485,7 +505,7 @@ void Test_Placing_A_File_Is_Repeatable(void)
 	buffered.Write("cached", 6);
 	buffered.Close();
 
-	Check(File_Exists(Root + SEP + "User" + SEP + "Own" + SEP + "BUFFERED.DAT"), "a buffered write lands in the user directory");
+	Check(File_Exists(Root + SEP + "User" + SEP + "Own" + SEP + Lowercased("BUFFERED.DAT")), "a buffered write lands in the user directory");
 }
 
 
@@ -501,18 +521,18 @@ void Test_Without_A_User_Directory_Nothing_Moves(void)
 	written.Write("here", 4);
 	written.Close();
 
-	Check(std::string(written.File_Name()) == "STILL.DAT", "a written file keeps its plain name");
-	Check(File_Exists(Root + SEP + "STILL.DAT"), "a written file lands beside the game");
+	Check(std::string(written.File_Name()) == Lowercased("STILL.DAT"), "a written file keeps its plain name");
+	Check(File_Exists(Root + SEP + Lowercased("STILL.DAT")), "a written file lands beside the game");
 	Check(Read_File(Root + SEP + "MIX" + SEP + "STILL.DAT") == "shipped", "a searched folder's copy is untouched");
 
 	CDFileClass discard("STILL.DAT");
 	discard.Delete();
 
-	Check(!File_Exists(Root + SEP + "STILL.DAT"), "a delete takes the copy beside the game");
-	Check(File_Exists(Root + SEP + "MIX" + SEP + "STILL.DAT"), "a delete leaves the searched folder's copy");
+	Check(!File_Exists(Root + SEP + Lowercased("STILL.DAT")), "a delete takes the copy beside the game");
+	Check(File_Exists(Root + SEP + "MIX" + SEP + Lowercased("STILL.DAT")), "a delete leaves the searched folder's copy");
 
 	CDFileClass shipped("STILL.DAT");
-	Check(std::string(shipped.File_Name()) == "MIX" + SEP + "STILL.DAT", "a read still falls through to the searched folders");
+	Check(std::string(shipped.File_Name()) == "MIX" + SEP + Lowercased("STILL.DAT"), "a read still falls through to the searched folders");
 }
 
 

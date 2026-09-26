@@ -150,6 +150,73 @@ The toolchain requires `clang-cl`, `lld-link`, `llvm-lib`, `llvm-mt`, and
 `llvm-rc` on `PATH`. It exports `compile_commands.json`; one configuration in
 `.vscode/c_cpp_properties.clang.example.json` reads that file for IntelliSense.
 
+## Experimental native Linux build
+
+An unsupported native Linux configuration is available for portability work.
+Unlike the clang-cl cross-build above, it compiles with GCC or Clang against
+glibc, not the MSVC ABI, and replaces Win32 windowing, input, timing, message
+boxes, clipboard access, and language-string loading with
+[SDL3](https://github.com/libsdl-org/SDL) and a generated string table. It
+does not expand the supported build matrix, does not add crash reporting
+(`code/except.cpp` stays Windows-only, with a no-op stub elsewhere), and has
+none of the Windows build's play-testing history.
+
+Install a Wayland or X11 development environment, then configure a
+single-configuration Ninja build:
+
+```bash
+cmake -S . -B build/linux -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DOPENTS_EXPERIMENTAL_LINUX=ON
+cmake --build build/linux
+ctest --test-dir build/linux --output-on-failure
+```
+
+This vendors SDL3 through `thirdparty/SDL`, which initializes the same way as
+the other submodules. The runtime files land in `build/linux/bin/`, the same
+layout as the Windows `bin/<configuration>/` directory without the
+per-configuration subfolder. `Language.dll` is a resource-only PE DLL with no
+Linux equivalent; this configuration reads
+`cmake/LanguageStrings.cmake`'s generated table instead, built from the same
+`code/language/language.rc` strings, and `code/data.cpp`'s `Fetch_String`
+takes a matching non-Windows code path.
+
+### File names on a case-sensitive filesystem
+
+`code/rawfile.cpp`'s `RawFileClass::Set_Name` lowercases a requested filename
+on this platform, then resolves it against the real on-disk name if a
+case-insensitive scan finds one; a name matching nothing, including one about
+to be created, keeps this lowercase form. A single file opened by name finds
+a mixed-case file such as `ui/Arimo.ttf` this way, and a file the engine
+writes lands on disk in lowercase rather than in the case it was asked for.
+The `tests/gamedirs` harness's expected file names account for this
+difference from the case-preserving Windows behavior it also checks.
+
+### Headless Wayland smoke test
+
+`tests/wayland-smoke/run.sh` starts its own headless Weston compositor, runs
+the built `GameD` against it with `SDL_VIDEODRIVER=wayland`, and checks the
+log for evidence that SDL3 created a window, bgfx initialized a renderer, and
+RmlUi's context came up over that window:
+
+```bash
+tests/wayland-smoke/run.sh build/linux/bin
+```
+
+`weston` must be on `PATH`; the script needs nothing else running first. It
+needs no game data, so it reaches no game-data UI screen: it validates window
+and renderer startup, not a menu or gameplay screen. Ubuntu's `weston`
+package does not carry the `weston-test` protocol, so the test cannot inject
+synthetic pointer or keyboard input into the compositor; it is evidence of
+startup, not of input handling. The game's render loop does not respond to
+`SIGTERM`, so the script sends a bounded wait followed by `SIGKILL` to both
+processes.
+
+The `Engine (experimental Linux)` workflow builds this configuration, runs
+its CTest suite, and runs this smoke test on every change to the same paths
+the Windows `Engine` workflow watches. It is a separate workflow from
+`Engine`, so a failure here does not block the supported Windows matrix.
+
 ## Build from Visual Studio Code
 
 With the recommended extensions installed, the repository provides:
